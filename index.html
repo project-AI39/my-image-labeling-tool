@@ -1,0 +1,1992 @@
+<!--
+
+Labeling Tool (純粋バニラ HTML CSS JavaScript)
+
+このファイルは、画像に対するスコア／ラベル付けを行う
+シンプルなラベリングツールのフロントエンドです。
+
+主な機能:
+- ローカルフォルダ内の画像（.jpg/.jpeg/.png/.webp）を読み込み、
+    画像ごとに定義済みのラベルセットで評価を行います。
+- ラベル定義は JSON（ラベルルール）として読み込み可能で、
+    設定に応じて各画像のラベル結果をローカルに保存します。
+- ブラウザの File System Access API を利用して
+    入力フォルダ／出力フォルダの選択やファイルの読み書きを行います。
+- ズーム・パン・自動次画像移動・未ラベル非表示・上書き制御などの操作を提供します。
+- 外部で編集された JSON をポーリングして自動更新する機能を持ちます。
+
+想定されるワークフロー:
+1) 画面上でラベル定義 JSON をアップロード、またはサンプルをコピー。
+2) 入力フォルダ（画像が置かれたフォルダ）と出力フォルダを選択。
+3) 「Start」して一覧から画像を評価。
+
+注意:
+- このページはローカルブラウザで動作する前提です。File System Access API は
+    一部のブラウザ（Chromium 系）でのみ利用可能です。
+- 大量のファイルを扱う場合、ブラウザの権限や性能に依存します。
+
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Labeling Tool (Pure Vanilla)</title>
+    <style>
+        /* --- CSS Variables (Theme Colors) --- */
+        :root {
+            --bg-dark: #111827;
+            /* gray-900 */
+            --bg-panel: #1f2937;
+            /* gray-800 */
+            --bg-hover: #374151;
+            /* gray-700 */
+            --text-main: #f9fafb;
+            /* gray-50 */
+            --text-sub: #9ca3af;
+            /* gray-400 */
+            --border: #374151;
+            /* gray-700 */
+
+            --primary: #2563eb;
+            /* blue-600 */
+            --primary-hover: #1d4ed8;
+            --success: #10b981;
+            /* emerald-500 */
+            --danger: #ef4444;
+            /* red-500 */
+        }
+
+        /* --- Reset & Base --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+
+            /* Disable Text Selection (Prevent accidental selection while dragging) */
+            -webkit-user-select: none;
+            /* Safari */
+            -moz-user-select: none;
+            /* Firefox */
+            -ms-user-select: none;
+            /* IE10+/Edge */
+            user-select: none;
+            /* Standard */
+        }
+
+        /* ★ Allow selection for text elements users might want to copy ★ */
+        .selectable,
+        .lp-infobar,
+        .error-box,
+        .row-name,
+        .setup-card h1,
+        .setup-card h2,
+        .setup-card p,
+        .setup-card .subtitle,
+        .sample-code {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+            cursor: auto;
+        }
+
+        /* --- Tooltip Styles --- */
+        .tooltip {
+            position: fixed;
+            z-index: 9999;
+            background: #0f172a;
+            /* Darker bg */
+            color: #f9fafb;
+            padding: 8px 12px;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            font-size: 12px;
+            line-height: 1.5;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+            white-space: pre-wrap;
+            /* Allow wrapping */
+            max-width: 300px;
+            visibility: hidden;
+        }
+
+        .tooltip--visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Indicator for items with tooltip */
+        .has-tooltip {
+            cursor: help !important;
+            border-bottom: 1px dotted #6b7280;
+        }
+
+        /* --- Scrollbar --- */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        /* --- Utilities --- */
+        .hidden {
+            display: none !important;
+        }
+
+        .flex {
+            display: flex;
+        }
+
+        .flex-col {
+            flex-direction: column;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-center {
+            justify-content: center;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .gap-2 {
+            gap: 0.5rem;
+        }
+
+        .gap-1 {
+            gap: 0.25rem;
+        }
+
+        .w-full {
+            width: 100%;
+        }
+
+        .h-full {
+            height: 100%;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        /* --- App Container --- */
+        #app {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- Initial Screen Styles --- */
+        .setup-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .setup-card {
+            background-color: var(--bg-panel);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        @media(min-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        h1 {
+            font-size: 1.875rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        h2 {
+            font-size: 1.125rem;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        p.subtitle {
+            color: var(--text-sub);
+            margin-bottom: 2rem;
+            font-size: 0.875rem;
+        }
+
+        /* File Input Buttons */
+        .file-btn {
+            width: 100%;
+            padding: 1rem;
+            height: 6rem;
+            border: 2px dashed #4b5563;
+            border-radius: 0.5rem;
+            background: transparent;
+            color: var(--text-sub);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .file-btn:hover {
+            border-color: var(--primary);
+            background-color: rgba(55, 65, 81, 0.5);
+        }
+
+        .file-btn.done {
+            border-color: var(--success);
+            background-color: rgba(6, 78, 59, 0.3);
+        }
+
+        .file-btn span.label {
+            font-weight: bold;
+            font-size: 0.95rem;
+            color: #d1d5db;
+            margin-bottom: 0.25rem;
+        }
+
+        .file-btn span.sub {
+            font-size: 0.75rem;
+            color: #9ca3af;
+        }
+
+        .file-btn.done span.label {
+            color: #34d399;
+        }
+
+        /* Sample Config Area */
+        details.sample-details {
+            margin-bottom: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 0.5rem;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        details.sample-details summary {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: var(--primary);
+            user-select: none;
+            outline: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background 0.2s;
+        }
+
+        details.sample-details summary:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        details.sample-details[open] summary {
+            border-bottom: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .sample-content {
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .sample-code {
+            display: block;
+            background: #111827;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #d1d5db;
+            overflow-x: auto;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            white-space: pre;
+            border: 1px solid #374151;
+        }
+
+        .sample-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+
+        .sm-btn {
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--bg-hover);
+            color: var(--text-main);
+            transition: all 0.2s;
+        }
+
+        .sm-btn:hover {
+            background: #4b5563;
+            border-color: #9ca3af;
+        }
+
+        /* Settings Panel */
+        .settings-panel {
+            background-color: rgba(55, 65, 81, 0.3);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+        }
+
+        /* Toggle Switch */
+        .toggle-wrapper {
+            display: flex;
+            justify-content: space-between;
+            cursor: pointer;
+            margin-bottom: 1.5rem;
+        }
+
+        .toggle-text div:first-child {
+            font-weight: bold;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .toggle-text div:last-child {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 40px;
+            height: 24px;
+            background: #4b5563;
+            border-radius: 24px;
+            flex-shrink: 0;
+            margin-left: 1rem;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+        }
+
+        .toggle-wrapper.active .toggle-switch {
+            background: var(--primary);
+        }
+
+        .toggle-wrapper.active .toggle-switch::after {
+            transform: translateX(16px);
+        }
+
+        /* Range Slider */
+        .range-wrapper {
+            margin-bottom: 1rem;
+        }
+
+        .range-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+            color: var(--text-sub);
+            margin-bottom: 0.5rem;
+        }
+
+        .range-val {
+            color: white;
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        input[type=range] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #4b5563;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* Start Button */
+        .start-btn {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .start-btn:disabled {
+            background-color: #374151;
+            color: #6b7280;
+            cursor: not-allowed;
+        }
+
+        .start-btn:not(:disabled):hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* Error Box */
+        .error-box {
+            background-color: rgba(127, 29, 29, 0.5);
+            border: 1px solid #b91c1c;
+            color: #fecaca;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        /* --- Labeling View Styles --- */
+        #labeling-view {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Left Panel (Image) */
+        .left-panel {
+            background-color: black;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            position: relative;
+        }
+
+        .lp-header {
+            height: 56px;
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: none;
+            color: #d1d5db;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover {
+            background-color: var(--bg-hover);
+            color: white;
+        }
+
+        .icon-btn:disabled {
+            opacity: 0.3;
+            cursor: default;
+        }
+
+        /* Controls Area */
+        .lp-controls {
+            padding: 8px 12px;
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-shrink: 0;
+            z-index: 10;
+            overflow-x: auto;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        /* Toolbar Buttons */
+        .tool-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #d1d5db;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .tool-btn:hover {
+            background-color: var(--bg-hover);
+        }
+
+        .tool-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .tool-btn.active-green {
+            background-color: var(--success);
+            color: white;
+            border-color: var(--success);
+        }
+
+        .zoom-btn {
+            background: var(--bg-hover);
+            border: none;
+            color: #d1d5db;
+            padding: 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zoom-btn:hover {
+            background-color: #4b5563;
+            color: white;
+        }
+
+        /* Filename Bar */
+        .lp-infobar {
+            background-color: #111827;
+            border-bottom: 1px solid var(--border);
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            color: #9ca3af;
+            font-family: monospace;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .lp-infobar span.dim {
+            opacity: 0.6;
+        }
+
+        .image-viewer {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            cursor: move;
+            width: 100%;
+            height: 100%;
+        }
+
+        .image-viewer:active {
+            cursor: grabbing;
+        }
+
+        #pan-zoom-target {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform-origin: center;
+            will-change: transform;
+        }
+
+        #pan-zoom-target img {
+            max-width: none;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            pointer-events: none;
+        }
+
+        /* Right Panel (List) */
+        .right-panel {
+            flex: 1;
+            background-color: #ffffff;
+            color: #1f2937;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            z-index: 20;
+            height: 100%;
+            box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .list-container {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .label-row {
+            display: flex;
+            border-bottom: 1px solid #e5e7eb;
+            width: 100%;
+            flex: 1;
+        }
+
+        .label-row.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+            background-color: #f9fafb;
+            filter: grayscale(100%);
+        }
+
+        .row-name {
+            width: 180px;
+            background-color: #f3f4f6;
+            padding: 0 1rem;
+            display: flex;
+            align-items: center;
+            border-right: 1px solid #d1d5db;
+            flex-shrink: 0;
+            font-weight: bold;
+            font-size: 0.95rem;
+            line-height: 1.2;
+        }
+
+        .row-idx {
+            color: #9ca3af;
+            font-size: 0.75rem;
+            font-family: monospace;
+            margin-right: 0.5rem;
+            width: 1.5em;
+            text-align: right;
+        }
+
+        .row-clear {
+            width: 80px;
+            border-right: 1px solid #d1d5db;
+            flex-shrink: 0;
+            background-color: #f9fafb;
+        }
+
+        .row-options {
+            flex: 1;
+            display: flex;
+            min-width: 0;
+        }
+
+        .option-btn {
+            flex: 1;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-right: 1px solid #f3f4f6;
+            color: #4b5563;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+        }
+
+        .option-btn:hover {
+            background-color: #f9fafb;
+        }
+
+        .option-btn.selected {
+            background-color: #eff6ff;
+            color: #1d4ed8;
+            z-index: 1;
+        }
+
+        .option-btn.selected::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 4px solid #2563eb;
+            pointer-events: none;
+        }
+
+        .option-btn .opt-text {
+            font-weight: bold;
+            line-height: 1.1;
+            word-break: break-all;
+        }
+
+        /* Clear Button specific */
+        .clear-btn {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: transparent;
+            color: #6b7280;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .clear-btn:hover:not(:disabled) {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+
+        .clear-btn.active {
+            color: #1d4ed8;
+            background-color: #eff6ff;
+            position: relative;
+        }
+
+        .clear-btn.active::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 4px solid #2563eb;
+        }
+
+        .clear-btn:disabled {
+            cursor: default;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app"></div>
+    <!-- Tooltip Element -->
+    <div id="global-tooltip" class="tooltip" role="tooltip"></div>
+
+    <script>
+        // ==========================================
+        // 0. Icons (SVG Definitions)
+        // ==========================================
+        const ICONS = {
+            'home': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+            'prev': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>',
+            'next': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
+            'zoom-in': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
+            'zoom-out': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
+            'maximize': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>',
+            'chevron-right': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
+        };
+
+        function getIcon(name) {
+            return ICONS[name] || '';
+        }
+
+        // ==========================================
+        // 1. Data & State
+        // ==========================================
+        const SAMPLE_CONFIG = {
+            "labels": [
+                {
+                    "label_id": "is_valid",
+                    "label_name": "Is Valid",
+                    "description": "Determine if this image should be evaluated.",
+                    "end_flag_value": 0,
+                    "options": [
+                        { "option_name": "Ignore", "option_value": 0.0, "description": "Blurry, black screen, test image, etc." },
+                        { "option_name": "Valid", "option_value": 1.0, "description": "Illustration, photo, screenshot, etc." }
+                    ]
+                },
+                {
+                    "label_id": "interest",
+                    "label_name": "Interest",
+                    "description": "Subjective interest level. How much you want to look at it.",
+                    "end_flag_value": null,
+                    "options": [
+                        { "option_name": "Skip", "option_value": 0.0, "description": "I see it, but I don't feel like looking at details." },
+                        { "option_name": "Curious", "option_value": 0.5, "description": "I look at it once, maybe zoom in a bit." },
+                        { "option_name": "Watch", "option_value": 1.0, "description": "I like the composition/theme and want to watch closely." }
+                    ]
+                },
+                {
+                    "label_id": "preference",
+                    "label_name": "Preference",
+                    "description": "Preference level. Do you want to save or share it?",
+                    "end_flag_value": null,
+                    "options": [
+                        { "option_name": "Low", "option_value": 0.0, "description": "Not bad, but not my taste. Won't save." },
+                        { "option_name": "Mid", "option_value": 0.5, "description": "Might look back sometimes, but not necessarily save." },
+                        { "option_name": "High", "option_value": 1.0, "description": "I want to save it as wallpaper or reference." }
+                    ]
+                },
+                {
+                    "label_id": "brightness",
+                    "label_name": "Brightness",
+                    "description": "Overall brightness impression.",
+                    "end_flag_value": 0.0,
+                    "options": [
+                        { "option_name": "Dark", "option_value": 0.0, "description": "Overall dark, strong shadows." },
+                        { "option_name": "Normal", "option_value": 0.5, "description": "Balanced brightness." },
+                        { "option_name": "Bright", "option_value": 1.0, "description": "Overall bright, strong highlights." }
+                    ]
+                },
+                {
+                    "label_id": "colorfulness",
+                    "label_name": "Colorfulness",
+                    "description": "Vividness and colorfulness of the image.",
+                    "end_flag_value": null,
+                    "options": [
+                        { "option_name": "Mono", "option_value": 0.0, "description": "Black & white or limited colors." },
+                        { "option_name": "Calm", "option_value": 0.33, "description": "Low saturation, quiet impression." },
+                        { "option_name": "Colorful", "option_value": 0.66, "description": "Multiple colors, not too flashy." },
+                        { "option_name": "Vivid", "option_value": 1.0, "description": "High saturation, very colorful." }
+                    ]
+                },
+                {
+                    "label_id": "has_people",
+                    "label_name": "Has People",
+                    "description": "Does the image contain humans or human-like characters?",
+                    "end_flag_value": 0.0,
+                    "mask_option": {
+                        "option_name": "Unsure",
+                        "option_value": null,
+                        "description": "Silhouette only, too far away to tell."
+                    },
+                    "options": [
+                        { "option_name": "None", "option_value": 0.0, "description": "Scenery, objects, UI only." },
+                        { "option_name": "Yes", "option_value": 1.0, "description": "One or more humans/characters depicted." }
+                    ]
+                },
+                {
+                    "label_id": "scene_type",
+                    "label_name": "Scene Type",
+                    "description": "Main subject of the scene.",
+                    "end_flag_value": null,
+                    "options": [
+                        { "option_name": "Scenery", "option_value": 0.0, "description": "Nature, city, interior where env is main." },
+                        { "option_name": "Character", "option_value": 0.33, "description": "Character is the main subject." },
+                        { "option_name": "Object", "option_value": 0.66, "description": "Product, tool, item." },
+                        { "option_name": "UI/Info", "option_value": 1.0, "description": "Graph, chart, app UI, code." }
+                    ]
+                },
+                {
+                    "label_id": "complexity",
+                    "label_name": "Complexity",
+                    "description": "Amount of elements or information in the screen.",
+                    "end_flag_value": 1.0,
+                    "mask_option": {
+                        "option_name": "Unsure",
+                        "option_value": null,
+                        "description": "Too blurry to judge details."
+                    },
+                    "options": [
+                        { "option_name": "Very Low", "option_value": 0.0, "description": "Single object, very simple." },
+                        { "option_name": "Low", "option_value": 0.25, "description": "Some elements, but clean." },
+                        { "option_name": "Medium", "option_value": 0.5, "description": "Multiple objects or text, moderate info." },
+                        { "option_name": "High", "option_value": 0.75, "description": "Many objects, slightly cluttered." },
+                        { "option_name": "Very High", "option_value": 1.0, "description": "Dense details, many small texts." }
+                    ]
+                }
+            ]
+        };
+
+        const state = {
+            view: 'initial',
+            labelConfig: null,
+            inputDirHandle: null,
+            outputDirHandle: null,
+            fileList: [],
+            currentLabels: {},
+            currentIndex: 0,
+            hideLabeled: false,
+            autoNext: false,
+            isSkipping: false,
+            isSaving: false,
+            pendingSaveFile: null,
+            allowOverwrite: true,
+            randomOrder: false,
+            scale: 1,
+            position: { x: 0, y: 0 },
+            isDragging: false,
+            dragStart: { x: 0, y: 0 },
+            rowMinHeight: 40,
+            imageAreaRatio: 25,
+            errorMsg: '',
+            statusMsg: '',
+            isPolling: false,
+            lastJsonModified: 0
+        };
+
+        const app = document.getElementById('app');
+        const tooltipEl = document.getElementById('global-tooltip');
+        let hoverTimer = null;
+        let filePollTimer = null;
+        let jsonPollTimer = null;
+        const SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
+
+        // ==========================================
+        // 2. Rendering
+        // ==========================================
+        function render() {
+            if (state.view === 'initial') {
+                renderInitialScreen();
+            } else {
+                if (!document.getElementById('labeling-view')) {
+                    app.innerHTML = '';
+                    createLabelingLayout();
+                }
+                updateLabelingView();
+            }
+        }
+
+        // --- Initial Screen ---
+        function renderInitialScreen() {
+            app.innerHTML = '';
+            const container = document.createElement('div');
+            container.className = "setup-container";
+
+            const card = document.createElement('div');
+            card.className = "setup-card";
+
+            card.innerHTML = `
+            <div class="text-center">
+                <h1>Image Labeling Tool (Pure Vanilla HTML CSS JavaScript)</h1>
+                <p class="subtitle">Recommended: Chrome / Edge (Uses File System Access API)</p>
+            </div>
+        `;
+
+            const grid = document.createElement('div');
+            grid.className = "grid-2";
+
+            // Left Col
+            const leftCol = document.createElement('div');
+            leftCol.innerHTML = `<h2>1. Data Source</h2>`;
+
+            // Sample Config Area
+            const sampleArea = document.createElement('details');
+            sampleArea.className = 'sample-details';
+            sampleArea.innerHTML = `
+            <summary>
+                ${getIcon('chevron-right')} 
+                <span>Need a sample config?</span>
+            </summary>
+            <div class="sample-content">
+                <p style="color:#9ca3af; font-size:0.8rem; margin-bottom:8px;">You can copy this JSON to create your own config file.</p>
+                <code class="sample-code">${JSON.stringify(SAMPLE_CONFIG, null, 2)}</code>
+                <div class="sample-actions">
+                    <button class="sm-btn" onclick="copySample()">Copy to Clipboard</button>
+                    <button class="sm-btn" onclick="downloadSample()">Download .json</button>
+                </div>
+            </div>
+        `;
+            leftCol.appendChild(sampleArea);
+
+            leftCol.appendChild(createUploadArea(
+                'Config File (.json)', 'Label Definitions', '.json',
+                !!state.labelConfig,
+                'Config Loaded',
+                state.labelConfig ? `${state.labelConfig.length} items` : '',
+                handleJsonUpload
+            ));
+
+            leftCol.appendChild(createFsButton(
+                'Select Image Folder',
+                !!state.inputDirHandle,
+                state.inputDirHandle ? state.inputDirHandle.name : '',
+                selectInputDir
+            ));
+
+            leftCol.appendChild(createFsButton(
+                'Select Output Folder',
+                !!state.outputDirHandle,
+                state.outputDirHandle ? state.outputDirHandle.name : '',
+                selectOutputDir
+            ));
+
+            // Right Col
+            const rightCol = document.createElement('div');
+            rightCol.innerHTML = `<h2>2. Options</h2>`;
+
+            const settingsPanel = document.createElement('div');
+            settingsPanel.className = "settings-panel";
+
+            settingsPanel.appendChild(createToggle(
+                'Allow Overwrite JSON',
+                'Overwrite existing JSON files on save',
+                state.allowOverwrite,
+                (v) => state.allowOverwrite = v
+            ));
+
+            settingsPanel.appendChild(createToggle(
+                'Randomize Image Order',
+                'Shuffle images instead of filename order',
+                state.randomOrder,
+                (v) => { state.randomOrder = v; resetFileList(); }
+            ));
+
+            // View Settings
+            const viewSettings = document.createElement('div');
+            viewSettings.style.marginTop = "1.5rem";
+
+            viewSettings.appendChild(createRange(
+                'rowMinHeight',
+                'Min Row Height', state.rowMinHeight, 30, 150, 'px',
+                (v) => updateSetting('rowMinHeight', v)
+            ));
+
+            viewSettings.appendChild(createRange(
+                'imageAreaRatio',
+                'Image Area Width', state.imageAreaRatio, 15, 80, '%',
+                (v) => updateSetting('imageAreaRatio', v)
+            ));
+
+            settingsPanel.appendChild(viewSettings);
+            rightCol.appendChild(settingsPanel);
+
+            grid.appendChild(leftCol);
+            grid.appendChild(rightCol);
+            card.appendChild(grid);
+
+            // Error Msg
+            if (state.errorMsg) {
+                const err = document.createElement('div');
+                err.className = "error-box";
+                err.innerHTML = `<span>${state.errorMsg}</span>`;
+                card.appendChild(err);
+            }
+
+            // Start Btn
+            const startBtn = document.createElement('button');
+            const isReady = state.labelConfig && state.inputDirHandle && state.outputDirHandle;
+            startBtn.disabled = !isReady;
+            startBtn.className = 'start-btn';
+            startBtn.innerHTML = `Start Labeling`;
+            startBtn.onclick = startApp;
+            card.appendChild(startBtn);
+
+            container.appendChild(card);
+            app.appendChild(container);
+        }
+
+        // --- Sample Config Actions ---
+        function copySample() {
+            const text = JSON.stringify(SAMPLE_CONFIG, null, 2);
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Copied to clipboard!');
+            });
+        }
+
+        function downloadSample() {
+            const text = JSON.stringify(SAMPLE_CONFIG, null, 2);
+            const blob = new Blob([text], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sample_config.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // --- Helper Components ---
+
+        function createUploadArea(title, sub, accept, isDone, doneMsg, doneSub, handler) {
+            const div = document.createElement('div');
+            div.className = `file-btn ${isDone ? 'done' : ''}`;
+
+            div.innerHTML = `
+            <span class="label">${isDone ? doneMsg : title}</span>
+            <span class="sub">${isDone ? doneSub : sub}</span>
+            <input type="file" accept="${accept}" class="hidden" />
+        `;
+            const input = div.querySelector('input');
+            input.onchange = handler;
+            div.onclick = () => input.click();
+            return div;
+        }
+
+        function createFsButton(label, isSet, pathName, onClick) {
+            const btn = document.createElement('button');
+            btn.className = `file-btn ${isSet ? 'done' : ''}`;
+            btn.onclick = onClick;
+
+            btn.innerHTML = `
+            <span class="label">${isSet ? 'Selected' : label}</span>
+            <span class="sub">${isSet ? pathName : 'Click to select folder'}</span>
+        `;
+            return btn;
+        }
+
+        function createToggle(label, desc, checked, onChange) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `toggle-wrapper ${checked ? 'active' : ''}`;
+            wrapper.innerHTML = `
+            <div class="toggle-text">
+                <div>${label}</div>
+                <div>${desc}</div>
+            </div>
+            <div class="toggle-switch"></div>
+        `;
+            wrapper.onclick = () => { onChange(!checked); render(); };
+            return wrapper;
+        }
+
+        function createRange(key, label, val, min, max, unit, onChange) {
+            const div = document.createElement('div');
+            div.className = 'range-wrapper';
+            div.innerHTML = `
+            <div class="range-header">
+                <span>${label}</span>
+                <span id="val-${key}" class="range-val" data-unit="${unit}">${val}${unit}</span>
+            </div>
+            <input type="range" min="${min}" max="${max}" value="${val}">
+        `;
+            div.querySelector('input').oninput = (e) => onChange(e.target.value);
+            return div;
+        }
+
+        // --- Labeling View (Layout) ---
+        function createLabelingLayout() {
+            const container = document.createElement('div');
+            container.id = 'labeling-view';
+
+            // Left Panel
+            const leftPanel = document.createElement('div');
+            leftPanel.className = 'left-panel';
+            leftPanel.id = 'left-panel';
+            leftPanel.style.width = `${state.imageAreaRatio}%`;
+
+            // Header (Nav)
+            const header = document.createElement('div');
+            header.className = 'lp-header';
+            header.innerHTML = `
+            <button onclick="goHome()" class="icon-btn" title="Home">${getIcon('home')}</button>
+            <div class="flex items-center">
+                <button id="btn-prev" onclick="changeImage(-1)" class="icon-btn">${getIcon('prev')}</button>
+                <span id="page-indicator" style="margin: 0 12px; font-family: monospace; font-weight: bold;"></span>
+                <button id="btn-next" onclick="changeImage(1)" class="icon-btn">${getIcon('next')}</button>
+            </div>
+            <div id="status-display" style="font-family: monospace; font-size: 0.8rem;"></div>
+        `;
+            leftPanel.appendChild(header);
+
+            // Toolbar (Controls: Labeling Opts + Zoom Opts)
+            const toolbar = document.createElement('div');
+            toolbar.className = 'lp-controls';
+            toolbar.innerHTML = `
+            <div class="control-group">
+                <button id="btn-hide-labeled" onclick="toggleHideLabeled()" class="tool-btn">
+                    Hide Labeled
+                </button>
+                <button id="btn-auto-next" onclick="toggleAutoNext()" class="tool-btn">
+                    Auto Next
+                </button>
+            </div>
+            <div class="control-group">
+                <button onclick="zoom(0.5)" class="zoom-btn">${getIcon('zoom-in')}</button>
+                <button onclick="zoom(-0.5)" class="zoom-btn">${getIcon('zoom-out')}</button>
+                <button onclick="resetView()" class="zoom-btn">${getIcon('maximize')}</button>
+            </div>
+        `;
+            leftPanel.appendChild(toolbar);
+
+            // Info Bar (Filename)
+            const infobar = document.createElement('div');
+            infobar.className = 'lp-infobar';
+            infobar.id = 'lp-infobar';
+            leftPanel.appendChild(infobar);
+
+            // Viewer
+            const viewer = document.createElement('div');
+            viewer.id = 'image-viewer';
+            viewer.className = 'image-viewer';
+
+            // Image Target
+            const target = document.createElement('div');
+            target.id = 'pan-zoom-target';
+            viewer.appendChild(target);
+
+            // Events
+            viewer.onwheel = handleWheel;
+            viewer.onmousedown = startDrag;
+            window.onmouseup = endDrag;
+            window.onmousemove = onDrag;
+            window.onresize = () => fitImageToViewer();
+
+            leftPanel.appendChild(viewer);
+
+            // Right Panel
+            const rightPanel = document.createElement('div');
+            rightPanel.className = 'right-panel';
+
+            const listContainer = document.createElement('div');
+            listContainer.id = 'label-list-container';
+            listContainer.className = 'list-container';
+
+            rightPanel.appendChild(listContainer);
+
+            container.appendChild(leftPanel);
+            container.appendChild(rightPanel);
+            app.appendChild(container);
+        }
+
+        // --- Utils ---
+        function gcd(a, b) {
+            return b === 0 ? a : gcd(b, a % b);
+        }
+
+        // --- Tooltip Logic ---
+        function positionTooltip(target) {
+            const text = target.getAttribute('data-tooltip');
+            if (!text) return;
+
+            tooltipEl.textContent = text;
+            tooltipEl.style.visibility = 'hidden';
+            tooltipEl.classList.add('tooltip--visible');
+
+            const rect = target.getBoundingClientRect();
+            const tipRect = tooltipEl.getBoundingClientRect();
+
+            let top = rect.top - tipRect.height - 8;
+            let left = rect.left + (rect.width - tipRect.width) / 2;
+
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            if (left < 4) {
+                left = 4;
+            } else if (left + tipRect.width > viewportWidth - 4) {
+                left = viewportWidth - tipRect.width - 4;
+            }
+
+            if (top < 4) {
+                top = rect.bottom + 8;
+            }
+
+            tooltipEl.style.top = top + 'px';
+            tooltipEl.style.left = left + 'px';
+            tooltipEl.style.visibility = 'visible';
+        }
+
+        function handleMouseEnter(e) {
+            const target = e.currentTarget;
+            if (hoverTimer) clearTimeout(hoverTimer);
+            hoverTimer = setTimeout(() => {
+                positionTooltip(target);
+            }, 1000);
+        }
+
+        function handleMouseLeave() {
+            if (hoverTimer) clearTimeout(hoverTimer);
+            tooltipEl.classList.remove('tooltip--visible');
+        }
+
+        // --- Polling Logic ---
+        function startPolling() {
+            if (filePollTimer) clearInterval(filePollTimer);
+            if (jsonPollTimer) clearInterval(jsonPollTimer);
+            state.isPolling = true;
+
+            // Poll File List every 10s (Updated)
+            filePollTimer = setInterval(checkForFileUpdates, 10000);
+
+            // Poll Current JSON every 1s
+            jsonPollTimer = setInterval(checkForJsonUpdates, 1000);
+        }
+
+        function stopPolling() {
+            state.isPolling = false;
+            if (filePollTimer) clearInterval(filePollTimer);
+            if (jsonPollTimer) clearInterval(jsonPollTimer);
+        }
+
+        async function checkForFileUpdates() {
+            if (!state.inputDirHandle || state.view !== 'labeling') return;
+
+            try {
+                const currentNames = new Set(state.fileList.map(f => f.name));
+                const newFiles = [];
+                const allFilesOnDiskMap = new Map();
+
+                for await (const entry of state.inputDirHandle.values()) {
+                    if (entry.kind === 'file') {
+                        const ext = entry.name.toLowerCase().match(/\.[^.]+$/);
+                        if (ext && SUPPORTED_EXTENSIONS.includes(ext[0])) {
+                            allFilesOnDiskMap.set(entry.name, entry);
+                            if (!currentNames.has(entry.name)) {
+                                newFiles.push({ name: entry.name, handle: entry });
+                            }
+                        }
+                    }
+                }
+
+                // Identify removals
+                const removedNames = new Set();
+                for (const file of state.fileList) {
+                    if (!allFilesOnDiskMap.has(file.name)) {
+                        removedNames.add(file.name);
+                    }
+                }
+
+                if (newFiles.length === 0 && removedNames.size === 0) return;
+
+                // Construct new list while preserving current image context
+                const currentFile = state.fileList[state.currentIndex];
+                const currentFileName = currentFile ? currentFile.name : null;
+
+                // 1. Remove deleted files
+                let nextFileList = state.fileList.filter(f => !removedNames.has(f.name));
+
+                // 2. Add new files
+                if (newFiles.length > 0) {
+                    if (state.randomOrder) {
+                        // Random mode: Append new files to the end
+                        // Shuffle new files among themselves before appending
+                        for (let i = newFiles.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [newFiles[i], newFiles[j]] = [newFiles[j], newFiles[i]];
+                        }
+                        nextFileList = nextFileList.concat(newFiles);
+                    } else {
+                        // Name mode: Add and Sort all
+                        nextFileList = nextFileList.concat(newFiles);
+                        nextFileList.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+                    }
+                }
+
+                state.fileList = nextFileList;
+
+                // 3. Restore Position
+                if (state.fileList.length === 0) {
+                    goHome();
+                    alert("All images were removed from the folder.");
+                    return;
+                }
+
+                let newIndex = -1;
+                if (currentFileName) {
+                    newIndex = state.fileList.findIndex(f => f.name === currentFileName);
+                }
+
+                if (newIndex !== -1) {
+                    // Current image exists -> Update index, View stays same
+                    state.currentIndex = newIndex;
+                    // Only update counter in header
+                    const pageInd = document.getElementById('page-indicator');
+                    if (pageInd) pageInd.innerHTML = `${state.currentIndex + 1} <span style="color:#6b7280">/ ${state.fileList.length}</span>`;
+                } else {
+                    // Current image deleted -> Clamp index and reload view to show neighbor
+                    if (state.currentIndex >= state.fileList.length) {
+                        state.currentIndex = state.fileList.length - 1;
+                    }
+                    updateLabelingView();
+                }
+
+                showStatus(`Sync: +${newFiles.length} / -${removedNames.size}`, false);
+
+            } catch (e) {
+                console.error("Polling Error:", e);
+            }
+        }
+
+        async function checkForJsonUpdates() {
+            if (!state.outputDirHandle || state.view !== 'labeling' || state.isSaving) return;
+
+            const currentFile = state.fileList[state.currentIndex];
+            if (!currentFile) return;
+
+            const jsonName = currentFile.name.replace(/\.[^.]+$/, "") + ".json";
+
+            try {
+                const fileHandle = await state.outputDirHandle.getFileHandle(jsonName);
+                const file = await fileHandle.getFile();
+
+                if (file.lastModified > state.lastJsonModified) {
+                    const text = await file.text();
+                    const json = JSON.parse(text);
+
+                    state.currentLabels[currentFile.name] = json;
+                    state.lastJsonModified = file.lastModified;
+
+                    updateLabelList();
+                    showStatus("Ext. Update", false);
+                }
+            } catch (err) {
+                // File might not exist yet
+            }
+        }
+
+        // --- Labeling View (Update) ---
+        function updateLabelingView() {
+            // Update Layout
+            const leftPanel = document.getElementById('left-panel');
+            if (leftPanel) leftPanel.style.width = `${state.imageAreaRatio}%`;
+
+            // Update Nav
+            const pageInd = document.getElementById('page-indicator');
+            if (pageInd) pageInd.innerHTML = `${state.currentIndex + 1} <span style="color:#6b7280">/ ${state.fileList.length}</span>`;
+
+            const btnPrev = document.getElementById('btn-prev');
+            const btnNext = document.getElementById('btn-next');
+            if (btnPrev) btnPrev.disabled = state.currentIndex <= 0 || state.isSkipping;
+            if (btnNext) btnNext.disabled = state.currentIndex >= state.fileList.length - 1 || state.isSkipping;
+
+            // Update Toggles
+            const btnHide = document.getElementById('btn-hide-labeled');
+            if (btnHide) btnHide.className = `tool-btn ${state.hideLabeled ? 'active' : ''}`;
+
+            const btnAuto = document.getElementById('btn-auto-next');
+            if (btnAuto) btnAuto.className = `tool-btn ${state.autoNext ? 'active-green' : ''}`;
+
+            // Load Image
+            const imgContainer = document.getElementById('pan-zoom-target');
+            const infobar = document.getElementById('lp-infobar');
+            const currentFile = state.fileList[state.currentIndex];
+
+            if (imgContainer && currentFile) {
+                const currentImg = imgContainer.querySelector('img');
+                const loadedName = currentImg ? currentImg.dataset.filename : null;
+
+                if (loadedName !== currentFile.name) {
+                    if (infobar) infobar.textContent = currentFile.name;
+
+                    imgContainer.innerHTML = '';
+                    currentFile.handle.getFile().then(file => {
+                        const img = document.createElement('img');
+                        img.src = URL.createObjectURL(file);
+                        img.dataset.filename = currentFile.name;
+                        img.draggable = false;
+
+                        img.onload = () => {
+                            fitImageToViewer();
+                            const w = img.naturalWidth;
+                            const h = img.naturalHeight;
+                            const divisor = gcd(w, h);
+                            const ratioW = w / divisor;
+                            const ratioH = h / divisor;
+
+                            if (infobar) {
+                                infobar.innerHTML = `${currentFile.name} <span class="dim" style="margin-left:12px;">[ ${w} x ${h} | ${ratioW}:${ratioH} ]</span>`;
+                            }
+                        };
+
+                        if (state.fileList[state.currentIndex].name === currentFile.name) {
+                            imgContainer.innerHTML = '';
+                            imgContainer.appendChild(img);
+                        }
+                    }).catch(() => {
+                        imgContainer.innerHTML = '<div style="color:var(--danger)">Image Load Error</div>';
+                    });
+                }
+            } else if (imgContainer) {
+                imgContainer.innerHTML = `<div style="color:#6b7280; text-align:center;">No Image</div>`;
+                if (infobar) infobar.textContent = '';
+            }
+
+            updateLabelList();
+        }
+
+        function updateLabelList() {
+            const container = document.getElementById('label-list-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const currentFile = state.fileList[state.currentIndex];
+            if (!currentFile) return;
+
+            const labels = state.currentLabels[currentFile.name] || {};
+            const status = checkIsFinished(labels);
+
+            if (state.hideLabeled && status.isFinished) {
+                container.innerHTML = `
+                <div style="height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#9ca3af;">
+                    <div style="font-weight:bold;">Skipping...</div>
+                    <div style="font-size:0.8rem;">Skipping labeled images</div>
+                </div>
+            `;
+                return;
+            }
+
+            let skipRemaining = false;
+            state.labelConfig.forEach((item, index) => {
+                const val = labels[item.label_id];
+                const isDisabled = skipRemaining;
+                const row = createLabelRow(index, item, val, isDisabled);
+                container.appendChild(row);
+
+                if (val !== undefined && val !== null && item.end_flag_value !== undefined && val === item.end_flag_value) {
+                    skipRemaining = true;
+                }
+            });
+        }
+
+        function createLabelRow(index, item, val, isDisabled) {
+            const row = document.createElement('div');
+            row.className = `label-row ${isDisabled ? 'disabled' : ''}`;
+            row.style.minHeight = `${state.rowMinHeight}px`;
+
+            const nameArea = document.createElement('div');
+            nameArea.className = 'row-name';
+            nameArea.innerHTML = `
+            <span class="row-idx">${index + 1}.</span>
+            <span style="flex:1">${item.label_name}</span>
+        `;
+
+            if (item.description) {
+                nameArea.classList.add('has-tooltip');
+                nameArea.setAttribute('data-tooltip', item.description);
+                nameArea.addEventListener('mouseenter', handleMouseEnter);
+                nameArea.addEventListener('mouseleave', handleMouseLeave);
+            }
+
+            row.appendChild(nameArea);
+
+            const clearArea = document.createElement('div');
+            clearArea.className = 'row-clear';
+            const isNull = val === null || val === undefined;
+
+            if (item.mask_option) {
+                const maskOpt = item.mask_option;
+                const isSelected = val === maskOpt.option_value;
+
+                const btn = document.createElement('button');
+                btn.className = `clear-btn ${isSelected ? 'active' : ''}`;
+                btn.disabled = isDisabled;
+                btn.innerText = maskOpt.option_name || 'Mask';
+
+                if (maskOpt.description) {
+                    btn.classList.add('has-tooltip');
+                    btn.setAttribute('data-tooltip', maskOpt.description);
+                    btn.addEventListener('mouseenter', handleMouseEnter);
+                    btn.addEventListener('mouseleave', handleMouseLeave);
+                }
+
+                btn.onclick = () => updateLabel(item.label_id, maskOpt.option_value);
+                clearArea.appendChild(btn);
+            } else {
+                const btn = document.createElement('button');
+                btn.className = 'clear-btn';
+                btn.disabled = true;
+                btn.innerText = '-';
+                clearArea.appendChild(btn);
+            }
+            row.appendChild(clearArea);
+
+            const optArea = document.createElement('div');
+            optArea.className = 'row-options';
+
+            item.options.forEach(opt => {
+                const isSelected = val === opt.option_value;
+                const btn = document.createElement('button');
+                btn.className = `option-btn ${isSelected ? 'selected' : ''}`;
+                btn.disabled = isDisabled;
+
+                let fs = '1rem';
+                if (item.options.length <= 2) fs = opt.option_name.length > 8 ? '1rem' : '1.2rem';
+                else fs = '0.9rem';
+
+                btn.innerHTML = `<span class="opt-text" style="font-size:${fs}">${opt.option_name}</span>`;
+
+                if (opt.description) {
+                    btn.classList.add('has-tooltip');
+                    btn.setAttribute('data-tooltip', opt.description);
+                    btn.addEventListener('mouseenter', handleMouseEnter);
+                    btn.addEventListener('mouseleave', handleMouseLeave);
+                }
+
+                btn.onclick = () => updateLabel(item.label_id, opt.option_value);
+                optArea.appendChild(btn);
+            });
+
+            row.appendChild(optArea);
+            return row;
+        }
+
+        // ==========================================
+        // 3. Logic & Actions
+        // ==========================================
+
+        function updateSetting(key, value) {
+            state[key] = parseInt(value);
+            const valEl = document.getElementById(`val-${key}`);
+            if (valEl) {
+                const unit = valEl.dataset.unit || '';
+                valEl.textContent = `${value}${unit}`;
+            }
+            if (state.view === 'labeling') updateLabelingView();
+        }
+
+        function handleJsonUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const json = JSON.parse(ev.target.result);
+                    if (!json.labels || !Array.isArray(json.labels)) throw new Error('Invalid JSON structure');
+                    state.labelConfig = json.labels;
+                    state.errorMsg = '';
+                    render();
+                } catch (err) {
+                    state.errorMsg = "JSON Load Error: " + err.message;
+                    render();
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        async function selectInputDir() {
+            try {
+                const handle = await window.showDirectoryPicker({ id: 'input', mode: 'read' });
+                state.inputDirHandle = handle;
+                await resetFileList();
+                state.errorMsg = '';
+            } catch (err) {
+                if (err.name !== 'AbortError') state.errorMsg = "Folder Selection Error";
+            }
+            render();
+        }
+
+        async function selectOutputDir() {
+            try {
+                const handle = await window.showDirectoryPicker({ id: 'output', mode: 'readwrite' });
+                state.outputDirHandle = handle;
+                state.errorMsg = '';
+            } catch (err) {
+                if (err.name !== 'AbortError') state.errorMsg = "Folder Selection Error";
+            }
+            render();
+        }
+
+        async function resetFileList() {
+            if (!state.inputDirHandle) return;
+            const list = [];
+            for await (const entry of state.inputDirHandle.values()) {
+                if (entry.kind === 'file') {
+                    const ext = entry.name.toLowerCase().match(/\.[^.]+$/);
+                    if (ext && SUPPORTED_EXTENSIONS.includes(ext[0])) {
+                        list.push({ name: entry.name, handle: entry });
+                    }
+                }
+            }
+            if (state.randomOrder) {
+                for (let i = list.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [list[i], list[j]] = [list[j], list[i]];
+                }
+            } else {
+                list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+            }
+            state.fileList = list;
+        }
+
+        async function startApp() {
+            if (!state.inputDirHandle || !state.labelConfig || !state.outputDirHandle) return;
+            if (state.fileList.length === 0) {
+                state.errorMsg = "No image files found";
+                render();
+                return;
+            }
+            state.view = 'labeling';
+            state.currentIndex = 0;
+            state.currentLabels = {};
+
+            await loadExistingJson();
+            startPolling();
+
+            resetView();
+            render();
+        }
+
+        function goHome() {
+            state.view = 'initial';
+            stopPolling();
+            render();
+        }
+
+        async function loadJsonForFile(fileItem) {
+            const jsonName = fileItem.name.replace(/\.[^.]+$/, "") + ".json";
+            try {
+                const h = await state.outputDirHandle.getFileHandle(jsonName);
+                const f = await h.getFile();
+                state.lastJsonModified = f.lastModified;
+                const t = await f.text();
+                return JSON.parse(t);
+            } catch (e) { return {}; }
+        }
+
+        async function loadExistingJson() {
+            const f = state.fileList[state.currentIndex];
+            if (!f) return;
+            const json = await loadJsonForFile(f);
+            state.currentLabels[f.name] = json;
+            showStatus('Loaded', false);
+        }
+
+        function updateLabel(labelId, value) {
+            const f = state.fileList[state.currentIndex];
+            if (!f) return;
+            if (!state.currentLabels[f.name]) state.currentLabels[f.name] = {};
+
+            state.currentLabels[f.name][labelId] = value;
+            render();
+
+            triggerSave(f);
+
+            const status = checkIsFinished(state.currentLabels[f.name]);
+            if ((state.autoNext || state.hideLabeled) && status.isFinished) {
+                setTimeout(() => changeImage(1), 300);
+            }
+        }
+
+        async function triggerSave(fileItem) {
+            state.pendingSaveFile = fileItem;
+            if (!state.isSaving) processSaveQueue();
+        }
+
+        async function processSaveQueue() {
+            if (!state.pendingSaveFile) {
+                state.isSaving = false;
+                showStatus("Saved!", false);
+                return;
+            }
+            state.isSaving = true;
+            showStatus("Saving...", false);
+            const item = state.pendingSaveFile;
+            state.pendingSaveFile = null;
+
+            try {
+                const currentData = state.currentLabels[item.name];
+                if (currentData && Object.keys(currentData).length > 0) {
+                    const jsonName = item.name.replace(/\.[^.]+$/, "") + ".json";
+
+                    let exists = false;
+                    try {
+                        await state.outputDirHandle.getFileHandle(jsonName);
+                        exists = true;
+                    } catch (e) { }
+
+                    if (!exists || state.allowOverwrite) {
+                        const h = await state.outputDirHandle.getFileHandle(jsonName, { create: true });
+                        const w = await h.createWritable();
+                        await w.write(JSON.stringify(currentData, null, 2));
+                        await w.close();
+
+                        const f = await h.getFile();
+                        state.lastJsonModified = f.lastModified;
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                showStatus("Save Failed", true);
+            }
+            processSaveQueue();
+        }
+
+        function checkIsFinished(labels) {
+            if (!state.labelConfig || !labels) return { isFinished: false };
+            for (const item of state.labelConfig) {
+                const val = labels[item.label_id];
+                if (val === undefined) return { isFinished: false };
+                if (val !== null && item.end_flag_value !== undefined && val === item.end_flag_value) {
+                    return { isFinished: true };
+                }
+            }
+            return { isFinished: true };
+        }
+
+        async function findNextUnlabeledIndex(startIdx, delta) {
+            let idx = startIdx + delta;
+            let checks = 0;
+            const max = state.fileList.length;
+            showStatus("Searching...", false);
+            while (idx >= 0 && idx < state.fileList.length && checks < max) {
+                const f = state.fileList[idx];
+                const json = await loadJsonForFile(f);
+                if (!checkIsFinished(json).isFinished) return idx;
+                idx += delta;
+                checks++;
+            }
+            return -1;
+        }
+
+        async function changeImage(delta) {
+            if (state.isSkipping) return;
+            let nextIdx = state.currentIndex + delta;
+
+            if (state.hideLabeled) {
+                state.isSkipping = true;
+                render();
+                const target = await findNextUnlabeledIndex(state.currentIndex, delta);
+                state.isSkipping = false;
+                if (target !== -1) nextIdx = target;
+                else {
+                    showStatus("No more images", true);
+                    render();
+                    return;
+                }
+            }
+
+            if (nextIdx >= 0 && nextIdx < state.fileList.length) {
+                triggerSave(state.fileList[state.currentIndex]);
+                state.currentIndex = nextIdx;
+                resetView();
+                render();
+                await loadExistingJson();
+                render();
+            }
+        }
+
+        function toggleHideLabeled() {
+            state.hideLabeled = !state.hideLabeled;
+            render();
+            if (state.hideLabeled) {
+                const f = state.fileList[state.currentIndex];
+                const l = state.currentLabels[f.name];
+                if (l && checkIsFinished(l).isFinished) changeImage(1);
+            }
+        }
+
+        function toggleAutoNext() { state.autoNext = !state.autoNext; render(); }
+
+        let statusTimer;
+        function showStatus(msg, isErr) {
+            const el = document.getElementById('status-display');
+            if (el) {
+                el.textContent = msg;
+                el.style.color = isErr ? '#f87171' : '#34d399';
+                if (msg === "Saved!" || msg === "Loaded" || msg.startsWith("Sync")) {
+                    clearTimeout(statusTimer);
+                    statusTimer = setTimeout(() => { if (el) el.textContent = ''; }, 2000);
+                }
+            }
+        }
+
+        // --- Viewer Logic ---
+        function resetView() {
+            fitImageToViewer();
+        }
+
+        function fitImageToViewer() {
+            const v = document.getElementById('image-viewer');
+            const t = document.getElementById('pan-zoom-target');
+            if (!v || !t) return;
+            const img = t.querySelector('img');
+            if (!img || !img.naturalWidth) return;
+
+            const scale = Math.min(v.clientWidth / img.naturalWidth, v.clientHeight / img.naturalHeight) * 0.95;
+            state.scale = scale;
+            state.position = { x: 0, y: 0 };
+            renderTrans();
+        }
+
+        function zoom(amt) {
+            state.scale = Math.min(Math.max(0.1, state.scale + amt), 10);
+            renderTrans();
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+            state.scale = Math.min(Math.max(0.1, state.scale - e.deltaY * 0.001), 10);
+            renderTrans();
+        }
+
+        function startDrag(e) {
+            if (e.button !== 0) return;
+            state.isDragging = true;
+            state.dragStart = { x: e.clientX - state.position.x, y: e.clientY - state.position.y };
+        }
+
+        function onDrag(e) {
+            if (!state.isDragging) return;
+            e.preventDefault();
+            state.position = { x: e.clientX - state.dragStart.x, y: e.clientY - state.dragStart.y };
+            renderTrans();
+        }
+
+        function endDrag() { state.isDragging = false; }
+
+        function renderTrans() {
+            const t = document.getElementById('pan-zoom-target');
+            if (t) t.style.transform = `translate(${state.position.x}px, ${state.position.y}px) scale(${state.scale})`;
+        }
+
+        // Initialize
+        render();
+    </script>
+</body>
+
+</html>
