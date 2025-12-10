@@ -616,6 +616,24 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             border-color: var(--success);
         }
 
+        .tool-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Delete Button specific */
+        .tool-btn.delete-btn {
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .tool-btn.delete-btn:hover:not(:disabled) {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: #fecaca;
+        }
+
         .zoom-btn {
             background: var(--bg-hover);
             border: none;
@@ -631,6 +649,11 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         .zoom-btn:hover {
             background-color: #4b5563;
             color: white;
+        }
+
+        .zoom-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         /* Filename Bar */
@@ -847,7 +870,9 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             'zoom-in': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
             'zoom-out': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
             'maximize': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>',
-            'chevron-right': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
+            'chevron-right': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
+            'trash': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>',
+            'check-circle': '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
         };
 
         function getIcon(name) {
@@ -867,96 +892,6 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                     "options": [
                         { "option_name": "Ignore", "option_value": 0.0, "description": "Blurry, black screen, test image, etc." },
                         { "option_name": "Valid", "option_value": 1.0, "description": "Illustration, photo, screenshot, etc." }
-                    ]
-                },
-                {
-                    "label_id": "interest",
-                    "label_name": "Interest",
-                    "description": "Subjective interest level. How much you want to look at it.",
-                    "end_flag_value": null,
-                    "options": [
-                        { "option_name": "Skip", "option_value": 0.0, "description": "I see it, but I don't feel like looking at details." },
-                        { "option_name": "Curious", "option_value": 0.5, "description": "I look at it once, maybe zoom in a bit." },
-                        { "option_name": "Watch", "option_value": 1.0, "description": "I like the composition/theme and want to watch closely." }
-                    ]
-                },
-                {
-                    "label_id": "preference",
-                    "label_name": "Preference",
-                    "description": "Preference level. Do you want to save or share it?",
-                    "end_flag_value": null,
-                    "options": [
-                        { "option_name": "Low", "option_value": 0.0, "description": "Not bad, but not my taste. Won't save." },
-                        { "option_name": "Mid", "option_value": 0.5, "description": "Might look back sometimes, but not necessarily save." },
-                        { "option_name": "High", "option_value": 1.0, "description": "I want to save it as wallpaper or reference." }
-                    ]
-                },
-                {
-                    "label_id": "brightness",
-                    "label_name": "Brightness",
-                    "description": "Overall brightness impression.",
-                    "end_flag_value": 0.0,
-                    "options": [
-                        { "option_name": "Dark", "option_value": 0.0, "description": "Overall dark, strong shadows." },
-                        { "option_name": "Normal", "option_value": 0.5, "description": "Balanced brightness." },
-                        { "option_name": "Bright", "option_value": 1.0, "description": "Overall bright, strong highlights." }
-                    ]
-                },
-                {
-                    "label_id": "colorfulness",
-                    "label_name": "Colorfulness",
-                    "description": "Vividness and colorfulness of the image.",
-                    "end_flag_value": null,
-                    "options": [
-                        { "option_name": "Mono", "option_value": 0.0, "description": "Black & white or limited colors." },
-                        { "option_name": "Calm", "option_value": 0.33, "description": "Low saturation, quiet impression." },
-                        { "option_name": "Colorful", "option_value": 0.66, "description": "Multiple colors, not too flashy." },
-                        { "option_name": "Vivid", "option_value": 1.0, "description": "High saturation, very colorful." }
-                    ]
-                },
-                {
-                    "label_id": "has_people",
-                    "label_name": "Has People",
-                    "description": "Does the image contain humans or human-like characters?",
-                    "end_flag_value": 0.0,
-                    "mask_option": {
-                        "option_name": "Unsure",
-                        "option_value": null,
-                        "description": "Silhouette only, too far away to tell."
-                    },
-                    "options": [
-                        { "option_name": "None", "option_value": 0.0, "description": "Scenery, objects, UI only." },
-                        { "option_name": "Yes", "option_value": 1.0, "description": "One or more humans/characters depicted." }
-                    ]
-                },
-                {
-                    "label_id": "scene_type",
-                    "label_name": "Scene Type",
-                    "description": "Main subject of the scene.",
-                    "end_flag_value": null,
-                    "options": [
-                        { "option_name": "Scenery", "option_value": 0.0, "description": "Nature, city, interior where env is main." },
-                        { "option_name": "Character", "option_value": 0.33, "description": "Character is the main subject." },
-                        { "option_name": "Object", "option_value": 0.66, "description": "Product, tool, item." },
-                        { "option_name": "UI/Info", "option_value": 1.0, "description": "Graph, chart, app UI, code." }
-                    ]
-                },
-                {
-                    "label_id": "complexity",
-                    "label_name": "Complexity",
-                    "description": "Amount of elements or information in the screen.",
-                    "end_flag_value": 1.0,
-                    "mask_option": {
-                        "option_name": "Unsure",
-                        "option_value": null,
-                        "description": "Too blurry to judge details."
-                    },
-                    "options": [
-                        { "option_name": "Very Low", "option_value": 0.0, "description": "Single object, very simple." },
-                        { "option_name": "Low", "option_value": 0.25, "description": "Some elements, but clean." },
-                        { "option_name": "Medium", "option_value": 0.5, "description": "Multiple objects or text, moderate info." },
-                        { "option_name": "High", "option_value": 0.75, "description": "Many objects, slightly cluttered." },
-                        { "option_name": "Very High", "option_value": 1.0, "description": "Dense details, many small texts." }
                     ]
                 }
             ]
@@ -986,7 +921,8 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             errorMsg: '',
             statusMsg: '',
             isPolling: false,
-            lastJsonModified: 0
+            lastJsonModified: 0,
+            jsonModTimes: {} // Map to track per-file modification times
         };
 
         const app = document.getElementById('app');
@@ -994,6 +930,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         let hoverTimer = null;
         let filePollTimer = null;
         let jsonPollTimer = null;
+        let allJsonPollTimer = null;
         const SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
         // ==========================================
@@ -1100,12 +1037,14 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             const viewSettings = document.createElement('div');
             viewSettings.style.marginTop = "1.5rem";
 
+            // Row Height Slider
             viewSettings.appendChild(createRange(
                 'rowMinHeight',
                 'Min Row Height', state.rowMinHeight, 30, 150, 'px',
                 (v) => updateSetting('rowMinHeight', v)
             ));
 
+            // Image Ratio Slider
             viewSettings.appendChild(createRange(
                 'imageAreaRatio',
                 'Image Area Width', state.imageAreaRatio, 15, 80, '%',
@@ -1254,11 +1193,14 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                 <button id="btn-auto-next" onclick="toggleAutoNext()" class="tool-btn">
                     Auto Next
                 </button>
+                <button id="btn-delete-json" onclick="deleteCurrentJson()" class="tool-btn delete-btn">
+                    <span style="width:16px">${getIcon('trash')}</span> Delete Labels
+                </button>
             </div>
             <div class="control-group">
-                <button onclick="zoom(0.5)" class="zoom-btn">${getIcon('zoom-in')}</button>
-                <button onclick="zoom(-0.5)" class="zoom-btn">${getIcon('zoom-out')}</button>
-                <button onclick="resetView()" class="zoom-btn">${getIcon('maximize')}</button>
+                <button id="btn-zoom-in" onclick="zoom(0.5)" class="zoom-btn">${getIcon('zoom-in')}</button>
+                <button id="btn-zoom-out" onclick="zoom(-0.5)" class="zoom-btn">${getIcon('zoom-out')}</button>
+                <button id="btn-reset-view" onclick="resetView()" class="zoom-btn">${getIcon('maximize')}</button>
             </div>
         `;
             leftPanel.appendChild(toolbar);
@@ -1354,16 +1296,26 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             tooltipEl.classList.remove('tooltip--visible');
         }
 
+        function forceHideTooltip() {
+            if (hoverTimer) clearTimeout(hoverTimer);
+            tooltipEl.classList.remove('tooltip--visible');
+        }
+
         // --- Polling Logic ---
         function startPolling() {
             if (filePollTimer) clearInterval(filePollTimer);
             if (jsonPollTimer) clearInterval(jsonPollTimer);
+            if (allJsonPollTimer) clearInterval(allJsonPollTimer);
+
             state.isPolling = true;
 
-            // Poll File List every 10s (Updated)
+            // Poll File List every 10s
             filePollTimer = setInterval(checkForFileUpdates, 10000);
 
-            // Poll Current JSON every 1s
+            // Poll ALL JSON updates every 10s (New)
+            allJsonPollTimer = setInterval(checkForAllJsonUpdates, 10000);
+
+            // Poll Current JSON every 1s (Existing)
             jsonPollTimer = setInterval(checkForJsonUpdates, 1000);
         }
 
@@ -1371,6 +1323,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             state.isPolling = false;
             if (filePollTimer) clearInterval(filePollTimer);
             if (jsonPollTimer) clearInterval(jsonPollTimer);
+            if (allJsonPollTimer) clearInterval(allJsonPollTimer);
         }
 
         async function checkForFileUpdates() {
@@ -1414,7 +1367,6 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                 if (newFiles.length > 0) {
                     if (state.randomOrder) {
                         // Random mode: Append new files to the end
-                        // Shuffle new files among themselves before appending
                         for (let i = newFiles.length - 1; i > 0; i--) {
                             const j = Math.floor(Math.random() * (i + 1));
                             [newFiles[i], newFiles[j]] = [newFiles[j], newFiles[i]];
@@ -1444,9 +1396,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                 if (newIndex !== -1) {
                     // Current image exists -> Update index, View stays same
                     state.currentIndex = newIndex;
-                    // Only update counter in header
-                    const pageInd = document.getElementById('page-indicator');
-                    if (pageInd) pageInd.innerHTML = `${state.currentIndex + 1} <span style="color:#6b7280">/ ${state.fileList.length}</span>`;
+                    updateLabelingView();
                 } else {
                     // Current image deleted -> Clamp index and reload view to show neighbor
                     if (state.currentIndex >= state.fileList.length) {
@@ -1459,6 +1409,52 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 
             } catch (e) {
                 console.error("Polling Error:", e);
+            }
+        }
+
+        async function checkForAllJsonUpdates() {
+            if (!state.outputDirHandle || state.view !== 'labeling') return;
+
+            let updatedCount = 0;
+
+            try {
+                for await (const entry of state.outputDirHandle.values()) {
+                    if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+                        // We can match filename to image here if needed, 
+                        // or just blindly load if updated.
+                        const file = await entry.getFile();
+                        const lastMod = file.lastModified;
+
+                        if (!state.jsonModTimes[entry.name] || state.jsonModTimes[entry.name] < lastMod) {
+                            // Updated or New
+                            const baseName = entry.name.replace(/\.json$/, "");
+
+                            // IMPORTANT: Need to find matching file name in fileList to get correct key
+                            // Because we store state.currentLabels keyed by full filename (with extension)
+                            // But json entry.name only tells us the base name.
+                            const matchedFile = state.fileList.find(f => f.name.startsWith(baseName) && f.name.replace(/\.[^.]+$/, "") === baseName);
+
+                            if (matchedFile) {
+                                const text = await file.text();
+                                try {
+                                    const json = JSON.parse(text);
+                                    state.currentLabels[matchedFile.name] = json;
+                                    state.jsonModTimes[entry.name] = lastMod;
+                                    updatedCount++;
+                                } catch (e) {
+                                    console.warn("JSON Parse Error:", entry.name);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (updatedCount > 0) {
+                    showStatus(`Sync: ${updatedCount} labels updated`, false);
+                    updateLabelingView(); // Re-render to reflect changes (e.g. Hide Labeled)
+                }
+            } catch (e) {
+                console.error("JSON Polling Error:", e);
             }
         }
 
@@ -1489,15 +1485,112 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             }
         }
 
+        // --- Preload All JSONs ---
+        async function loadAllExistingJsons() {
+            if (!state.outputDirHandle) return;
+
+            showStatus("Scanning labels...", false);
+
+            const jsonFiles = new Map();
+            for await (const entry of state.outputDirHandle.values()) {
+                if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+                    const baseName = entry.name.replace(/\.json$/, "");
+                    jsonFiles.set(baseName, entry);
+                }
+            }
+
+            let count = 0;
+
+            // Use fileList to match and load correct JSONs
+            // This ensures the keys in currentLabels match file names (including extensions)
+            const promises = state.fileList.map(async (fileItem) => {
+                const baseName = fileItem.name.replace(/\.[^.]+$/, "");
+                const entry = jsonFiles.get(baseName);
+
+                if (entry) {
+                    try {
+                        const file = await entry.getFile();
+                        const text = await file.text();
+                        const json = JSON.parse(text);
+                        state.currentLabels[fileItem.name] = json;
+                        state.jsonModTimes[entry.name] = file.lastModified; // Init timestamp
+                        count++;
+                    } catch (e) {
+                        console.warn("Failed to load JSON:", entry.name);
+                    }
+                }
+            });
+
+            await Promise.all(promises);
+            showStatus(`Loaded ${count} labels`, false);
+        }
+
         // --- Labeling View (Update) ---
         function updateLabelingView() {
+            forceHideTooltip(); // Ensure tooltips are hidden on view update
+
+            // Check for "All Done" state in Hide Labeled mode
+            if (state.hideLabeled) {
+                let unlabeledCount = 0;
+                for (const file of state.fileList) {
+                    const labels = state.currentLabels[file.name];
+                    if (!checkIsFinished(labels).isFinished) {
+                        unlabeledCount++;
+                    }
+                }
+
+                if (unlabeledCount === 0) {
+                    renderAllDoneState();
+                    return;
+                }
+            }
+
+            // --- Standard View ---
+
+            // Re-enable buttons if they were disabled by All Done state
+            const btnDelete = document.getElementById('btn-delete-json');
+            if (btnDelete) btnDelete.disabled = false;
+
+            const btnZoomIn = document.getElementById('btn-zoom-in');
+            if (btnZoomIn) btnZoomIn.disabled = false;
+
+            const btnZoomOut = document.getElementById('btn-zoom-out');
+            if (btnZoomOut) btnZoomOut.disabled = false;
+
+            const btnResetView = document.getElementById('btn-reset-view');
+            if (btnResetView) btnResetView.disabled = false;
+
+
             // Update Layout
             const leftPanel = document.getElementById('left-panel');
             if (leftPanel) leftPanel.style.width = `${state.imageAreaRatio}%`;
 
-            // Update Nav
+            // Update Nav (Handle Hide Labeled Counting)
             const pageInd = document.getElementById('page-indicator');
-            if (pageInd) pageInd.innerHTML = `${state.currentIndex + 1} <span style="color:#6b7280">/ ${state.fileList.length}</span>`;
+            if (pageInd) {
+                let currentDisplayIndex = state.currentIndex + 1;
+                let totalDisplayCount = state.fileList.length;
+
+                if (state.hideLabeled) {
+                    let count = 0;
+                    let myPos = -1;
+                    for (let i = 0; i < state.fileList.length; i++) {
+                        const f = state.fileList[i];
+                        const labels = state.currentLabels[f.name];
+                        if (!checkIsFinished(labels).isFinished) {
+                            count++;
+                            if (i === state.currentIndex) myPos = count;
+                        } else if (i === state.currentIndex) {
+                            // Current is finished but briefly shown
+                            myPos = count + 1;
+                        }
+                    }
+                    pageInd.innerHTML = `${myPos !== -1 ? myPos : '-'} <span style="color:#6b7280">/ ${count}</span>`;
+                } else {
+                    // Normal Mode
+                    pageInd.innerHTML = `${currentDisplayIndex} <span style="color:#6b7280">/ ${totalDisplayCount}</span>`;
+                }
+            }
 
             const btnPrev = document.getElementById('btn-prev');
             const btnNext = document.getElementById('btn-next');
@@ -1557,6 +1650,67 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             }
 
             updateLabelList();
+        }
+
+        function renderAllDoneState() {
+            forceHideTooltip();
+
+            // Reset transform state
+            state.scale = 1;
+            state.position = { x: 0, y: 0 };
+            renderTrans();
+
+            const imgContainer = document.getElementById('pan-zoom-target');
+            const nameBadge = document.getElementById('file-name-badge');
+            const infobar = document.getElementById('lp-infobar');
+
+            if (imgContainer) imgContainer.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; color: #9ca3af; height: 100%;">
+                <div style="color: var(--success); margin-bottom: 1rem;">${getIcon('check-circle')}</div>
+                <h2 style="font-size: 1.5rem; font-weight: bold; color: white; margin-bottom: 0.5rem;">All Done!</h2>
+                <p>All images have been labeled.</p>
+                <button onclick="toggleHideLabeled()" style="margin-top: 1.5rem; padding: 0.5rem 1rem; background-color: var(--bg-hover); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Show All Images
+                </button>
+            </div>
+        `;
+            if (nameBadge) nameBadge.textContent = "";
+            if (infobar) infobar.textContent = "";
+
+            const listContainer = document.getElementById('label-list-container');
+            if (listContainer) listContainer.innerHTML = `
+            <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: #9ca3af;">
+                <div style="text-align: center;">
+                    <p>No unlabeled images left.</p>
+                </div>
+            </div>
+        `;
+
+            const pageInd = document.getElementById('page-indicator');
+            if (pageInd) pageInd.innerHTML = `<span style="color: var(--success)">Done</span>`;
+
+            // Update Toggles
+            const btnHide = document.getElementById('btn-hide-labeled');
+            if (btnHide) btnHide.className = `tool-btn ${state.hideLabeled ? 'active' : ''}`;
+
+            // Disable Nav and Action Buttons
+            const btnPrev = document.getElementById('btn-prev');
+            if (btnPrev) btnPrev.disabled = true;
+
+            const btnNext = document.getElementById('btn-next');
+            if (btnNext) btnNext.disabled = true;
+
+            const btnDelete = document.getElementById('btn-delete-json');
+            if (btnDelete) btnDelete.disabled = true;
+
+            const btnZoomIn = document.getElementById('btn-zoom-in');
+            if (btnZoomIn) btnZoomIn.disabled = true;
+
+            const btnZoomOut = document.getElementById('btn-zoom-out');
+            if (btnZoomOut) btnZoomOut.disabled = true;
+
+            const btnResetView = document.getElementById('btn-reset-view');
+            if (btnResetView) btnResetView.disabled = true;
         }
 
         function updateLabelList() {
@@ -1764,7 +1918,10 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             state.currentIndex = 0;
             state.currentLabels = {};
 
-            await loadExistingJson();
+            // Scan Existing JSONs first
+            await loadAllExistingJsons();
+
+            // Then start regular polling
             startPolling();
 
             resetView();
@@ -1856,6 +2013,33 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             processSaveQueue();
         }
 
+        // --- Delete Function ---
+        async function deleteCurrentJson() {
+            const currentFile = state.fileList[state.currentIndex];
+            if (!currentFile) return;
+
+            if (!confirm(`Are you sure you want to delete the labels for "${currentFile.name}"?`)) {
+                return;
+            }
+
+            const jsonName = currentFile.name.replace(/\.[^.]+$/, "") + ".json";
+            try {
+                await state.outputDirHandle.removeEntry(jsonName);
+                // Clear memory state
+                delete state.currentLabels[currentFile.name];
+                // Update UI
+                updateLabelList();
+                showStatus("Labels Deleted", true);
+            } catch (err) {
+                if (err.name === 'NotFoundError') {
+                    showStatus("No Labels Found", true);
+                } else {
+                    console.error(err);
+                    showStatus("Delete Failed", true);
+                }
+            }
+        }
+
         function checkIsFinished(labels) {
             if (!state.labelConfig || !labels) return { isFinished: false };
             for (const item of state.labelConfig) {
@@ -1884,6 +2068,8 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         }
 
         async function changeImage(delta) {
+            forceHideTooltip(); // Clear tooltip on image change
+
             if (state.isSkipping) return;
             let nextIdx = state.currentIndex + delta;
 
@@ -1910,13 +2096,42 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             }
         }
 
-        function toggleHideLabeled() {
+        async function toggleHideLabeled() {
             state.hideLabeled = !state.hideLabeled;
             render();
             if (state.hideLabeled) {
                 const f = state.fileList[state.currentIndex];
                 const l = state.currentLabels[f.name];
-                if (l && checkIsFinished(l).isFinished) changeImage(1);
+
+                // If current is finished, move away
+                if (l && checkIsFinished(l).isFinished) {
+                    // Try finding next forward
+                    let target = await findNextUnlabeledIndex(state.currentIndex, 1);
+
+                    // If not found forward, try finding from start
+                    if (target === -1) {
+                        target = await findNextUnlabeledIndex(-1, 1);
+                    }
+
+                    if (target !== -1) {
+                        state.currentIndex = target;
+                        // Important: trigger a load/render cycle
+                        resetView();
+                        render();
+                        await loadExistingJson();
+                        render();
+                    } else {
+                        // No unlabeled found anywhere
+                        renderAllDoneState();
+                    }
+                } else {
+                    // Check if actually all done (even if current is unfinished, which is paradoxical but logic-safe)
+                    let unlabeledCount = 0;
+                    for (const file of state.fileList) {
+                        if (!checkIsFinished(state.currentLabels[file.name]).isFinished) unlabeledCount++;
+                    }
+                    if (unlabeledCount === 0) renderAllDoneState();
+                }
             }
         }
 
@@ -1928,7 +2143,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             if (el) {
                 el.textContent = msg;
                 el.style.color = isErr ? '#f87171' : '#34d399';
-                if (msg === "Saved!" || msg === "Loaded" || msg.startsWith("Sync")) {
+                if (msg === "Saved!" || msg === "Loaded" || msg.startsWith("Sync") || msg === "Labels Deleted") {
                     clearTimeout(statusTimer);
                     statusTimer = setTimeout(() => { if (el) el.textContent = ''; }, 2000);
                 }
