@@ -73,18 +73,14 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             width: 100vw;
             overflow: hidden;
 
-            /* Disable Text Selection (Prevent accidental selection while dragging) */
+            /* Disable Text Selection */
             -webkit-user-select: none;
-            /* Safari */
             -moz-user-select: none;
-            /* Firefox */
             -ms-user-select: none;
-            /* IE10+/Edge */
             user-select: none;
-            /* Standard */
         }
 
-        /* ★ Allow selection for text elements users might want to copy ★ */
+        /* Allow selection for text elements */
         .selectable,
         .lp-infobar,
         .error-box,
@@ -106,7 +102,6 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             position: fixed;
             z-index: 9999;
             background: #0f172a;
-            /* Darker bg */
             color: #f9fafb;
             padding: 8px 12px;
             border: 1px solid #374151;
@@ -118,7 +113,6 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             pointer-events: none;
             transition: opacity 0.15s ease;
             white-space: pre-wrap;
-            /* Allow wrapping */
             max-width: 300px;
             visibility: hidden;
         }
@@ -128,7 +122,6 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             visibility: visible;
         }
 
-        /* Indicator for items with tooltip */
         .has-tooltip {
             cursor: help !important;
             border-bottom: 1px dotted #6b7280;
@@ -745,11 +738,20 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             padding: 0 1rem;
             display: flex;
             align-items: center;
+            justify-content: center;
+            /* Center text vertically */
             border-right: 1px solid #d1d5db;
             flex-shrink: 0;
             font-weight: bold;
             font-size: 0.95rem;
+            /* Will be adjusted by JS */
             line-height: 1.2;
+            word-break: break-word;
+            /* Allow wrapping */
+            text-align: center;
+            /* Center align text */
+            overflow: hidden;
+            /* Ensure overflow is hidden */
         }
 
         .row-idx {
@@ -759,6 +761,17 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             margin-right: 0.5rem;
             width: 1.5em;
             text-align: right;
+            flex-shrink: 0;
+            /* Prevent shrinking */
+        }
+
+        .row-name-text {
+            /* Wrapper for the label name to allow sizing */
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
         }
 
         .row-clear {
@@ -787,6 +800,8 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             align-items: center;
             justify-content: center;
             padding: 4px;
+            overflow: hidden;
+            /* Ensure overflow is hidden */
         }
 
         .option-btn:hover {
@@ -809,8 +824,12 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 
         .option-btn .opt-text {
             font-weight: bold;
-            line-height: 1.1;
-            word-break: break-all;
+            line-height: 1.2;
+            /* Better line height */
+            word-break: break-word;
+            /* Enable wrapping */
+            width: auto;
+            text-align: center;
         }
 
         /* Clear Button specific */
@@ -849,6 +868,14 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         .clear-btn:disabled {
             cursor: default;
             opacity: 0.3;
+        }
+
+        /* Auto fit class */
+        .auto-fit-text {
+            max-width: 100%;
+            /* Removed white-space: nowrap to allow wrapping */
+            display: inline-block;
+            width: auto;
         }
     </style>
 </head>
@@ -931,6 +958,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         let filePollTimer = null;
         let jsonPollTimer = null;
         let allJsonPollTimer = null;
+        let resizeTimer = null;
         const SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
         // ==========================================
@@ -1047,7 +1075,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             // Image Ratio Slider
             viewSettings.appendChild(createRange(
                 'imageAreaRatio',
-                'Image Area Width', state.imageAreaRatio, 15, 80, '%',
+                'Image Area Width', state.imageAreaRatio, 10, 50, '%', // Fixed min 10 max 50
                 (v) => updateSetting('imageAreaRatio', v)
             ));
 
@@ -1301,6 +1329,91 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             tooltipEl.classList.remove('tooltip--visible');
         }
 
+        // --- Auto Text Size Adjustment Logic ---
+        function adjustAllTextSizes() {
+            const elements = document.querySelectorAll('.auto-fit-text');
+            elements.forEach(el => {
+                adjustFontSize(el.parentElement, el);
+            });
+        }
+
+        function adjustFontSize(container, text) {
+            if (!container || !text) return;
+
+            const style = window.getComputedStyle(container);
+            const padLeft = parseFloat(style.paddingLeft);
+            const padRight = parseFloat(style.paddingRight);
+            const padTop = parseFloat(style.paddingTop);
+            const padBottom = parseFloat(style.paddingBottom);
+
+            const cWidth = container.clientWidth - padLeft - padRight;
+            const cHeight = container.clientHeight - padTop - padBottom;
+
+            if (cWidth <= 0 || cHeight <= 0) return;
+
+            // Aesthetic margin: limit content to 95% of available space
+            const targetWidth = cWidth * 0.95;
+            const targetHeight = cHeight * 0.95;
+
+            // Max size limit: smaller of width or 50% height
+            // Also clamp between 15px and 40px
+            let min = 15;
+            // Ensure max >= min to prevent issues if container is tiny
+            let maxLimitHeight = cHeight * 0.50;
+            let max = Math.min(cWidth, maxLimitHeight, 40);
+
+            if (max < min) max = min;
+
+            let optimal = min;
+
+            // Reset width/height to ensure natural measurement
+            text.style.width = 'auto';
+            text.style.height = 'auto'; // Added this safety
+
+            // Force single line for calculation
+            const originalWhiteSpace = text.style.whiteSpace;
+            text.style.whiteSpace = 'nowrap';
+
+            // Important: Temporarily force line-height to 1 to measure pure text height accurately
+            const originalLH = text.style.lineHeight;
+            text.style.lineHeight = '1';
+
+            while (min <= max) {
+                const mid = Math.floor((min + max) / 2);
+                text.style.fontSize = `${mid}px`;
+
+                // Measure
+                if (text.scrollWidth <= targetWidth && text.scrollHeight <= targetHeight) {
+                    optimal = mid;
+                    min = mid + 1;
+                } else {
+                    max = mid - 1;
+                }
+            }
+
+            // Apply optimal size
+            text.style.fontSize = `${optimal}px`;
+
+            // Restore styles
+            text.style.lineHeight = originalLH;
+            // Restore wrapping behavior
+            // We want it to wrap if it doesn't fit even at min size
+            // So we explicitly set it to normal here
+            text.style.whiteSpace = 'normal';
+        }
+
+        // Debounce for resize
+        window.addEventListener('resize', () => {
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if (state.view === 'labeling') {
+                    fitImageToViewer();
+                    adjustAllTextSizes();
+                }
+            }, 100);
+        });
+
+
         // --- Polling Logic ---
         function startPolling() {
             if (filePollTimer) clearInterval(filePollTimer);
@@ -1477,7 +1590,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                     state.currentLabels[currentFile.name] = json;
                     state.lastJsonModified = file.lastModified;
 
-                    updateLabelList();
+                    updateLabelingView();
                     showStatus("Ext. Update", false);
                 }
             } catch (err) {
@@ -1745,6 +1858,9 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                     skipRemaining = true;
                 }
             });
+
+            // Adjust text sizes after rendering
+            adjustAllTextSizes();
         }
 
         function createLabelRow(index, item, val, isDisabled) {
@@ -1756,7 +1872,9 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             nameArea.className = 'row-name';
             nameArea.innerHTML = `
             <span class="row-idx">${index + 1}.</span>
-            <span style="flex:1">${item.label_name}</span>
+            <div class="row-name-text">
+                <span class="auto-fit-text">${item.label_name}</span>
+            </div>
         `;
 
             if (item.description) {
@@ -1779,7 +1897,9 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                 const btn = document.createElement('button');
                 btn.className = `clear-btn ${isSelected ? 'active' : ''}`;
                 btn.disabled = isDisabled;
-                btn.innerText = maskOpt.option_name || 'Mask';
+
+                // Wrap text for auto-sizing
+                btn.innerHTML = `<span class="auto-fit-text">${maskOpt.option_name || 'Mask'}</span>`;
 
                 if (maskOpt.description) {
                     btn.classList.add('has-tooltip');
@@ -1808,11 +1928,10 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                 btn.className = `option-btn ${isSelected ? 'selected' : ''}`;
                 btn.disabled = isDisabled;
 
-                let fs = '1rem';
-                if (item.options.length <= 2) fs = opt.option_name.length > 8 ? '1rem' : '1.2rem';
-                else fs = '0.9rem';
+                // Adjust Font Size handled by JS now
+                // let fs = '1rem'; ... removed logic
 
-                btn.innerHTML = `<span class="opt-text" style="font-size:${fs}">${opt.option_name}</span>`;
+                btn.innerHTML = `<span class="opt-text auto-fit-text">${opt.option_name}</span>`;
 
                 if (opt.description) {
                     btn.classList.add('has-tooltip');
