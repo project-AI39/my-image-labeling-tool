@@ -56,6 +56,8 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             /* emerald-500 */
             --danger: #ef4444;
             /* red-500 */
+            --warning: #f59e0b;
+            /* amber-500 */
         }
 
         /* --- Reset & Base --- */
@@ -504,6 +506,35 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             font-size: 0.875rem;
         }
 
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #374151;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
         /* --- Labeling View Styles --- */
         #labeling-view {
             display: flex;
@@ -832,6 +863,16 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             text-align: center;
         }
 
+        .option-btn:disabled {
+            cursor: not-allowed;
+            /* Keep color visible but indicate unclickable */
+            opacity: 0.9;
+        }
+        
+        .option-btn:disabled:not(.selected) {
+            opacity: 0.5;
+        }
+
         /* Clear Button specific */
         .clear-btn {
             width: 100%;
@@ -866,8 +907,12 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         }
 
         .clear-btn:disabled {
-            cursor: default;
-            opacity: 0.3;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        
+        .clear-btn:disabled.active {
+            opacity: 0.9;
         }
 
         /* Auto fit class */
@@ -885,6 +930,12 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
     <div id="app"></div>
     <!-- Tooltip Element -->
     <div id="global-tooltip" class="tooltip" role="tooltip"></div>
+    <!-- Loading Element -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+        <div id="loading-text" style="font-size: 1.1rem; font-weight: bold;">Loading...</div>
+        <div id="loading-sub" style="font-size: 0.9rem; color: #9ca3af; margin-top: 0.5rem;"></div>
+    </div>
 
     <script>
         // ==========================================
@@ -899,7 +950,8 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             'maximize': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>',
             'chevron-right': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
             'trash': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>',
-            'check-circle': '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+            'check-circle': '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+            'refresh': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>'
         };
 
         function getIcon(name) {
@@ -919,6 +971,96 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                     "options": [
                         { "option_name": "Ignore", "option_value": 0.0, "description": "Blurry, black screen, test image, etc." },
                         { "option_name": "Valid", "option_value": 1.0, "description": "Illustration, photo, screenshot, etc." }
+                    ]
+                },
+                {
+                    "label_id": "interest",
+                    "label_name": "Interest",
+                    "description": "Subjective interest level. How much you want to look at it.",
+                    "end_flag_value": null,
+                    "options": [
+                        { "option_name": "Skip", "option_value": 0.0, "description": "I see it, but I don't feel like looking at details." },
+                        { "option_name": "Curious", "option_value": 0.5, "description": "I look at it once, maybe zoom in a bit." },
+                        { "option_name": "Watch", "option_value": 1.0, "description": "I like the composition/theme and want to watch closely." }
+                    ]
+                },
+                {
+                    "label_id": "preference",
+                    "label_name": "Preference",
+                    "description": "Preference level. Do you want to save or share it?",
+                    "end_flag_value": null,
+                    "options": [
+                        { "option_name": "Low", "option_value": 0.0, "description": "Not bad, but not my taste. Won't save." },
+                        { "option_name": "Mid", "option_value": 0.5, "description": "Might look back sometimes, but not necessarily save." },
+                        { "option_name": "High", "option_value": 1.0, "description": "I want to save it as wallpaper or reference." }
+                    ]
+                },
+                {
+                    "label_id": "brightness",
+                    "label_name": "Brightness",
+                    "description": "Overall brightness impression.",
+                    "end_flag_value": 0.0,
+                    "options": [
+                        { "option_name": "Dark", "option_value": 0.0, "description": "Overall dark, strong shadows." },
+                        { "option_name": "Normal", "option_value": 0.5, "description": "Balanced brightness." },
+                        { "option_name": "Bright", "option_value": 1.0, "description": "Overall bright, strong highlights." }
+                    ]
+                },
+                {
+                    "label_id": "colorfulness",
+                    "label_name": "Colorfulness",
+                    "description": "Vividness and colorfulness of the image.",
+                    "end_flag_value": null,
+                    "options": [
+                        { "option_name": "Mono", "option_value": 0.0, "description": "Black & white or limited colors." },
+                        { "option_name": "Calm", "option_value": 0.33, "description": "Low saturation, quiet impression." },
+                        { "option_name": "Colorful", "option_value": 0.66, "description": "Multiple colors, not too flashy." },
+                        { "option_name": "Vivid", "option_value": 1.0, "description": "High saturation, very colorful." }
+                    ]
+                },
+                {
+                    "label_id": "has_people",
+                    "label_name": "Has People",
+                    "description": "Does the image contain humans or human-like characters?",
+                    "end_flag_value": 0.0,
+                    "mask_option": {
+                        "option_name": "Unsure",
+                        "option_value": null,
+                        "description": "Silhouette only, too far away to tell."
+                    },
+                    "options": [
+                        { "option_name": "None", "option_value": 0.0, "description": "Scenery, objects, UI only." },
+                        { "option_name": "Yes", "option_value": 1.0, "description": "One or more humans/characters depicted." }
+                    ]
+                },
+                {
+                    "label_id": "scene_type",
+                    "label_name": "Scene Type",
+                    "description": "Main subject of the scene.",
+                    "end_flag_value": null,
+                    "options": [
+                        { "option_name": "Scenery", "option_value": 0.0, "description": "Nature, city, interior where env is main." },
+                        { "option_name": "Character", "option_value": 0.33, "description": "Character is the main subject." },
+                        { "option_name": "Object", "option_value": 0.66, "description": "Product, tool, item." },
+                        { "option_name": "UI/Info", "option_value": 1.0, "description": "Graph, chart, app UI, code." }
+                    ]
+                },
+                {
+                    "label_id": "complexity",
+                    "label_name": "Complexity",
+                    "description": "Amount of elements or information in the screen.",
+                    "end_flag_value": 1.0,
+                    "mask_option": {
+                        "option_name": "Unsure",
+                        "option_value": null,
+                        "description": "Too blurry to judge details."
+                    },
+                    "options": [
+                        { "option_name": "Very Low", "option_value": 0.0, "description": "Single object, very simple." },
+                        { "option_name": "Low", "option_value": 0.25, "description": "Some elements, but clean." },
+                        { "option_name": "Medium", "option_value": 0.5, "description": "Multiple objects or text, moderate info." },
+                        { "option_name": "High", "option_value": 0.75, "description": "Many objects, slightly cluttered." },
+                        { "option_name": "Very High", "option_value": 1.0, "description": "Dense details, many small texts." }
                     ]
                 }
             ]
@@ -947,17 +1089,17 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             imageAreaRatio: 25,
             errorMsg: '',
             statusMsg: '',
-            isPolling: false,
-            lastJsonModified: 0,
-            jsonModTimes: {} // Map to track per-file modification times
+            fontSizeCache: {},
+            hasExistingJson: false // Track if current file has existing labels on disk
         };
 
         const app = document.getElementById('app');
         const tooltipEl = document.getElementById('global-tooltip');
+        const loaderEl = document.getElementById('loading-overlay');
+        const loaderText = document.getElementById('loading-text');
+        const loaderSub = document.getElementById('loading-sub');
+
         let hoverTimer = null;
-        let filePollTimer = null;
-        let jsonPollTimer = null;
-        let allJsonPollTimer = null;
         let resizeTimer = null;
         const SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
@@ -973,6 +1115,16 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                     createLabelingLayout();
                 }
                 updateLabelingView();
+            }
+        }
+
+        function showLoader(show, mainMsg = 'Loading...', subMsg = '') {
+            if (show) {
+                loaderText.textContent = mainMsg;
+                loaderSub.textContent = subMsg;
+                loaderEl.classList.remove('hidden');
+            } else {
+                loaderEl.classList.add('hidden');
             }
         }
 
@@ -1051,14 +1203,14 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                 'Allow Overwrite JSON',
                 'Overwrite existing JSON files on save',
                 state.allowOverwrite,
-                (v) => state.allowOverwrite = v
+                (v) => { state.allowOverwrite = v; }
             ));
 
             settingsPanel.appendChild(createToggle(
                 'Randomize Image Order',
                 'Shuffle images instead of filename order',
                 state.randomOrder,
-                (v) => { state.randomOrder = v; resetFileList(); }
+                (v) => { state.randomOrder = v; }
             ));
 
             // View Settings
@@ -1075,7 +1227,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             // Image Ratio Slider
             viewSettings.appendChild(createRange(
                 'imageAreaRatio',
-                'Image Area Width', state.imageAreaRatio, 10, 50, '%', // Fixed min 10 max 50
+                'Image Area Width', state.imageAreaRatio, 10, 50, '%',
                 (v) => updateSetting('imageAreaRatio', v)
             ));
 
@@ -1107,38 +1259,11 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             app.appendChild(container);
         }
 
-        // --- Sample Config Actions ---
-        function copySample() {
-            const text = JSON.stringify(SAMPLE_CONFIG, null, 2);
-            navigator.clipboard.writeText(text).then(() => {
-                alert('Copied to clipboard!');
-            });
-        }
-
-        function downloadSample() {
-            const text = JSON.stringify(SAMPLE_CONFIG, null, 2);
-            const blob = new Blob([text], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'sample_config.json';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
         // --- Helper Components ---
-
         function createUploadArea(title, sub, accept, isDone, doneMsg, doneSub, handler) {
             const div = document.createElement('div');
             div.className = `file-btn ${isDone ? 'done' : ''}`;
-
-            div.innerHTML = `
-            <span class="label">${isDone ? doneMsg : title}</span>
-            <span class="sub">${isDone ? doneSub : sub}</span>
-            <input type="file" accept="${accept}" class="hidden" />
-        `;
+            div.innerHTML = `<span class="label">${isDone ? doneMsg : title}</span><span class="sub">${isDone ? doneSub : sub}</span><input type="file" accept="${accept}" class="hidden" />`;
             const input = div.querySelector('input');
             input.onchange = handler;
             div.onclick = () => input.click();
@@ -1149,24 +1274,14 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             const btn = document.createElement('button');
             btn.className = `file-btn ${isSet ? 'done' : ''}`;
             btn.onclick = onClick;
-
-            btn.innerHTML = `
-            <span class="label">${isSet ? 'Selected' : label}</span>
-            <span class="sub">${isSet ? pathName : 'Click to select folder'}</span>
-        `;
+            btn.innerHTML = `<span class="label">${isSet ? 'Selected' : label}</span><span class="sub">${isSet ? pathName : 'Click to select folder'}</span>`;
             return btn;
         }
 
         function createToggle(label, desc, checked, onChange) {
             const wrapper = document.createElement('div');
             wrapper.className = `toggle-wrapper ${checked ? 'active' : ''}`;
-            wrapper.innerHTML = `
-            <div class="toggle-text">
-                <div>${label}</div>
-                <div>${desc}</div>
-            </div>
-            <div class="toggle-switch"></div>
-        `;
+            wrapper.innerHTML = `<div class="toggle-text"><div>${label}</div><div>${desc}</div></div><div class="toggle-switch"></div>`;
             wrapper.onclick = () => { onChange(!checked); render(); };
             return wrapper;
         }
@@ -1174,13 +1289,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         function createRange(key, label, val, min, max, unit, onChange) {
             const div = document.createElement('div');
             div.className = 'range-wrapper';
-            div.innerHTML = `
-            <div class="range-header">
-                <span>${label}</span>
-                <span id="val-${key}" class="range-val" data-unit="${unit}">${val}${unit}</span>
-            </div>
-            <input type="range" min="${min}" max="${max}" value="${val}">
-        `;
+            div.innerHTML = `<div class="range-header"><span>${label}</span><span id="val-${key}" class="range-val" data-unit="${unit}">${val}${unit}</span></div><input type="range" min="${min}" max="${max}" value="${val}">`;
             div.querySelector('input').oninput = (e) => onChange(e.target.value);
             return div;
         }
@@ -1200,7 +1309,10 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             const header = document.createElement('div');
             header.className = 'lp-header';
             header.innerHTML = `
-            <button onclick="goHome()" class="icon-btn" title="Home">${getIcon('home')}</button>
+            <div class="flex items-center gap-2">
+                <button onclick="goHome()" class="icon-btn" title="Home">${getIcon('home')}</button>
+                <button onclick="reloadAll()" class="icon-btn" title="Reload List & Status">${getIcon('refresh')}</button>
+            </div>
             <div class="flex items-center">
                 <button id="btn-prev" onclick="changeImage(-1)" class="icon-btn">${getIcon('prev')}</button>
                 <span id="page-indicator" style="margin: 0 12px; font-family: monospace; font-weight: bold;"></span>
@@ -1210,20 +1322,14 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         `;
             leftPanel.appendChild(header);
 
-            // Toolbar (Controls: Labeling Opts + Zoom Opts)
+            // Toolbar
             const toolbar = document.createElement('div');
             toolbar.className = 'lp-controls';
             toolbar.innerHTML = `
             <div class="control-group">
-                <button id="btn-hide-labeled" onclick="toggleHideLabeled()" class="tool-btn">
-                    Hide Labeled
-                </button>
-                <button id="btn-auto-next" onclick="toggleAutoNext()" class="tool-btn">
-                    Auto Next
-                </button>
-                <button id="btn-delete-json" onclick="deleteCurrentJson()" class="tool-btn delete-btn">
-                    <span style="width:16px">${getIcon('trash')}</span> Delete Labels
-                </button>
+                <button id="btn-hide-labeled" onclick="toggleHideLabeled()" class="tool-btn">Hide Labeled</button>
+                <button id="btn-auto-next" onclick="toggleAutoNext()" class="tool-btn">Auto Next</button>
+                <button id="btn-delete-json" onclick="deleteCurrentJson()" class="tool-btn delete-btn"><span style="width:16px">${getIcon('trash')}</span> Delete Labels</button>
             </div>
             <div class="control-group">
                 <button id="btn-zoom-in" onclick="zoom(0.5)" class="zoom-btn">${getIcon('zoom-in')}</button>
@@ -1233,23 +1339,18 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         `;
             leftPanel.appendChild(toolbar);
 
-            // Info Bar (Filename)
             const infobar = document.createElement('div');
             infobar.className = 'lp-infobar';
             infobar.id = 'lp-infobar';
             leftPanel.appendChild(infobar);
 
-            // Viewer
             const viewer = document.createElement('div');
             viewer.id = 'image-viewer';
             viewer.className = 'image-viewer';
-
-            // Image Target
             const target = document.createElement('div');
             target.id = 'pan-zoom-target';
             viewer.appendChild(target);
 
-            // Events
             viewer.onwheel = handleWheel;
             viewer.onmousedown = startDrag;
             window.onmouseup = endDrag;
@@ -1258,14 +1359,11 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 
             leftPanel.appendChild(viewer);
 
-            // Right Panel
             const rightPanel = document.createElement('div');
             rightPanel.className = 'right-panel';
-
             const listContainer = document.createElement('div');
             listContainer.id = 'label-list-container';
             listContainer.className = 'list-container';
-
             rightPanel.appendChild(listContainer);
 
             container.appendChild(leftPanel);
@@ -1273,691 +1371,16 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             app.appendChild(container);
         }
 
-        // --- Utils ---
-        function gcd(a, b) {
-            return b === 0 ? a : gcd(b, a % b);
-        }
-
-        // --- Tooltip Logic ---
-        function positionTooltip(target) {
-            const text = target.getAttribute('data-tooltip');
-            if (!text) return;
-
-            tooltipEl.textContent = text;
-            tooltipEl.style.visibility = 'hidden';
-            tooltipEl.classList.add('tooltip--visible');
-
-            const rect = target.getBoundingClientRect();
-            const tipRect = tooltipEl.getBoundingClientRect();
-
-            let top = rect.top - tipRect.height - 8;
-            let left = rect.left + (rect.width - tipRect.width) / 2;
-
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-
-            if (left < 4) {
-                left = 4;
-            } else if (left + tipRect.width > viewportWidth - 4) {
-                left = viewportWidth - tipRect.width - 4;
-            }
-
-            if (top < 4) {
-                top = rect.bottom + 8;
-            }
-
-            tooltipEl.style.top = top + 'px';
-            tooltipEl.style.left = left + 'px';
-            tooltipEl.style.visibility = 'visible';
-        }
-
-        function handleMouseEnter(e) {
-            const target = e.currentTarget;
-            if (hoverTimer) clearTimeout(hoverTimer);
-            hoverTimer = setTimeout(() => {
-                positionTooltip(target);
-            }, 1000);
-        }
-
-        function handleMouseLeave() {
-            if (hoverTimer) clearTimeout(hoverTimer);
-            tooltipEl.classList.remove('tooltip--visible');
-        }
-
-        function forceHideTooltip() {
-            if (hoverTimer) clearTimeout(hoverTimer);
-            tooltipEl.classList.remove('tooltip--visible');
-        }
-
-        // --- Auto Text Size Adjustment Logic ---
-        function adjustAllTextSizes() {
-            const elements = document.querySelectorAll('.auto-fit-text');
-            elements.forEach(el => {
-                adjustFontSize(el.parentElement, el);
-            });
-        }
-
-        function adjustFontSize(container, text) {
-            if (!container || !text) return;
-
-            const style = window.getComputedStyle(container);
-            const padLeft = parseFloat(style.paddingLeft);
-            const padRight = parseFloat(style.paddingRight);
-            const padTop = parseFloat(style.paddingTop);
-            const padBottom = parseFloat(style.paddingBottom);
-
-            const cWidth = container.clientWidth - padLeft - padRight;
-            const cHeight = container.clientHeight - padTop - padBottom;
-
-            if (cWidth <= 0 || cHeight <= 0) return;
-
-            // Aesthetic margin: limit content to 95% of available space
-            const targetWidth = cWidth * 0.95;
-            const targetHeight = cHeight * 0.95;
-
-            // Max size limit: smaller of width or 50% height
-            // Also clamp between 15px and 40px
-            let min = 15;
-            // Ensure max >= min to prevent issues if container is tiny
-            let maxLimitHeight = cHeight * 0.50;
-            let max = Math.min(cWidth, maxLimitHeight, 40);
-
-            if (max < min) max = min;
-
-            let optimal = min;
-
-            // Reset width/height to ensure natural measurement
-            text.style.width = 'auto';
-            text.style.height = 'auto'; // Added this safety
-
-            // Force single line for calculation
-            const originalWhiteSpace = text.style.whiteSpace;
-            text.style.whiteSpace = 'nowrap';
-
-            // Important: Temporarily force line-height to 1 to measure pure text height accurately
-            const originalLH = text.style.lineHeight;
-            text.style.lineHeight = '1';
-
-            while (min <= max) {
-                const mid = Math.floor((min + max) / 2);
-                text.style.fontSize = `${mid}px`;
-
-                // Measure
-                if (text.scrollWidth <= targetWidth && text.scrollHeight <= targetHeight) {
-                    optimal = mid;
-                    min = mid + 1;
-                } else {
-                    max = mid - 1;
-                }
-            }
-
-            // Apply optimal size
-            text.style.fontSize = `${optimal}px`;
-
-            // Restore styles
-            text.style.lineHeight = originalLH;
-            // Restore wrapping behavior
-            // We want it to wrap if it doesn't fit even at min size
-            // So we explicitly set it to normal here
-            text.style.whiteSpace = 'normal';
-        }
-
-        // Debounce for resize
-        window.addEventListener('resize', () => {
-            if (resizeTimer) clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => {
-                if (state.view === 'labeling') {
-                    fitImageToViewer();
-                    adjustAllTextSizes();
-                }
-            }, 100);
-        });
-
-
-        // --- Polling Logic ---
-        function startPolling() {
-            if (filePollTimer) clearInterval(filePollTimer);
-            if (jsonPollTimer) clearInterval(jsonPollTimer);
-            if (allJsonPollTimer) clearInterval(allJsonPollTimer);
-
-            state.isPolling = true;
-
-            // Poll File List every 10s
-            filePollTimer = setInterval(checkForFileUpdates, 10000);
-
-            // Poll ALL JSON updates every 10s (New)
-            allJsonPollTimer = setInterval(checkForAllJsonUpdates, 10000);
-
-            // Poll Current JSON every 1s (Existing)
-            jsonPollTimer = setInterval(checkForJsonUpdates, 1000);
-        }
-
-        function stopPolling() {
-            state.isPolling = false;
-            if (filePollTimer) clearInterval(filePollTimer);
-            if (jsonPollTimer) clearInterval(jsonPollTimer);
-            if (allJsonPollTimer) clearInterval(allJsonPollTimer);
-        }
-
-        async function checkForFileUpdates() {
-            if (!state.inputDirHandle || state.view !== 'labeling') return;
-
-            try {
-                const currentNames = new Set(state.fileList.map(f => f.name));
-                const newFiles = [];
-                const allFilesOnDiskMap = new Map();
-
-                for await (const entry of state.inputDirHandle.values()) {
-                    if (entry.kind === 'file') {
-                        const ext = entry.name.toLowerCase().match(/\.[^.]+$/);
-                        if (ext && SUPPORTED_EXTENSIONS.includes(ext[0])) {
-                            allFilesOnDiskMap.set(entry.name, entry);
-                            if (!currentNames.has(entry.name)) {
-                                newFiles.push({ name: entry.name, handle: entry });
-                            }
-                        }
-                    }
-                }
-
-                // Identify removals
-                const removedNames = new Set();
-                for (const file of state.fileList) {
-                    if (!allFilesOnDiskMap.has(file.name)) {
-                        removedNames.add(file.name);
-                    }
-                }
-
-                if (newFiles.length === 0 && removedNames.size === 0) return;
-
-                // Construct new list while preserving current image context
-                const currentFile = state.fileList[state.currentIndex];
-                const currentFileName = currentFile ? currentFile.name : null;
-
-                // 1. Remove deleted files
-                let nextFileList = state.fileList.filter(f => !removedNames.has(f.name));
-
-                // 2. Add new files
-                if (newFiles.length > 0) {
-                    if (state.randomOrder) {
-                        // Random mode: Append new files to the end
-                        for (let i = newFiles.length - 1; i > 0; i--) {
-                            const j = Math.floor(Math.random() * (i + 1));
-                            [newFiles[i], newFiles[j]] = [newFiles[j], newFiles[i]];
-                        }
-                        nextFileList = nextFileList.concat(newFiles);
-                    } else {
-                        // Name mode: Add and Sort all
-                        nextFileList = nextFileList.concat(newFiles);
-                        nextFileList.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-                    }
-                }
-
-                state.fileList = nextFileList;
-
-                // 3. Restore Position
-                if (state.fileList.length === 0) {
-                    goHome();
-                    alert("All images were removed from the folder.");
-                    return;
-                }
-
-                let newIndex = -1;
-                if (currentFileName) {
-                    newIndex = state.fileList.findIndex(f => f.name === currentFileName);
-                }
-
-                if (newIndex !== -1) {
-                    // Current image exists -> Update index, View stays same
-                    state.currentIndex = newIndex;
-                    updateLabelingView();
-                } else {
-                    // Current image deleted -> Clamp index and reload view to show neighbor
-                    if (state.currentIndex >= state.fileList.length) {
-                        state.currentIndex = state.fileList.length - 1;
-                    }
-                    updateLabelingView();
-                }
-
-                showStatus(`Sync: +${newFiles.length} / -${removedNames.size}`, false);
-
-            } catch (e) {
-                console.error("Polling Error:", e);
-            }
-        }
-
-        async function checkForAllJsonUpdates() {
-            if (!state.outputDirHandle || state.view !== 'labeling') return;
-
-            let updatedCount = 0;
-
-            try {
-                for await (const entry of state.outputDirHandle.values()) {
-                    if (entry.kind === 'file' && entry.name.endsWith('.json')) {
-                        // We can match filename to image here if needed, 
-                        // or just blindly load if updated.
-                        const file = await entry.getFile();
-                        const lastMod = file.lastModified;
-
-                        if (!state.jsonModTimes[entry.name] || state.jsonModTimes[entry.name] < lastMod) {
-                            // Updated or New
-                            const baseName = entry.name.replace(/\.json$/, "");
-
-                            // IMPORTANT: Need to find matching file name in fileList to get correct key
-                            // Because we store state.currentLabels keyed by full filename (with extension)
-                            // But json entry.name only tells us the base name.
-                            const matchedFile = state.fileList.find(f => f.name.startsWith(baseName) && f.name.replace(/\.[^.]+$/, "") === baseName);
-
-                            if (matchedFile) {
-                                const text = await file.text();
-                                try {
-                                    const json = JSON.parse(text);
-                                    state.currentLabels[matchedFile.name] = json;
-                                    state.jsonModTimes[entry.name] = lastMod;
-                                    updatedCount++;
-                                } catch (e) {
-                                    console.warn("JSON Parse Error:", entry.name);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (updatedCount > 0) {
-                    showStatus(`Sync: ${updatedCount} labels updated`, false);
-                    updateLabelingView(); // Re-render to reflect changes (e.g. Hide Labeled)
-                }
-            } catch (e) {
-                console.error("JSON Polling Error:", e);
-            }
-        }
-
-        async function checkForJsonUpdates() {
-            if (!state.outputDirHandle || state.view !== 'labeling' || state.isSaving) return;
-
-            const currentFile = state.fileList[state.currentIndex];
-            if (!currentFile) return;
-
-            const jsonName = currentFile.name.replace(/\.[^.]+$/, "") + ".json";
-
-            try {
-                const fileHandle = await state.outputDirHandle.getFileHandle(jsonName);
-                const file = await fileHandle.getFile();
-
-                if (file.lastModified > state.lastJsonModified) {
-                    const text = await file.text();
-                    const json = JSON.parse(text);
-
-                    state.currentLabels[currentFile.name] = json;
-                    state.lastJsonModified = file.lastModified;
-
-                    updateLabelingView();
-                    showStatus("Ext. Update", false);
-                }
-            } catch (err) {
-                // File might not exist yet
-            }
-        }
-
-        // --- Preload All JSONs ---
-        async function loadAllExistingJsons() {
-            if (!state.outputDirHandle) return;
-
-            showStatus("Scanning labels...", false);
-
-            const jsonFiles = new Map();
-            for await (const entry of state.outputDirHandle.values()) {
-                if (entry.kind === 'file' && entry.name.endsWith('.json')) {
-                    const baseName = entry.name.replace(/\.json$/, "");
-                    jsonFiles.set(baseName, entry);
-                }
-            }
-
-            let count = 0;
-
-            // Use fileList to match and load correct JSONs
-            // This ensures the keys in currentLabels match file names (including extensions)
-            const promises = state.fileList.map(async (fileItem) => {
-                const baseName = fileItem.name.replace(/\.[^.]+$/, "");
-                const entry = jsonFiles.get(baseName);
-
-                if (entry) {
-                    try {
-                        const file = await entry.getFile();
-                        const text = await file.text();
-                        const json = JSON.parse(text);
-                        state.currentLabels[fileItem.name] = json;
-                        state.jsonModTimes[entry.name] = file.lastModified; // Init timestamp
-                        count++;
-                    } catch (e) {
-                        console.warn("Failed to load JSON:", entry.name);
-                    }
-                }
-            });
-
-            await Promise.all(promises);
-            showStatus(`Loaded ${count} labels`, false);
-        }
-
-        // --- Labeling View (Update) ---
-        function updateLabelingView() {
-            forceHideTooltip(); // Ensure tooltips are hidden on view update
-
-            // Check for "All Done" state in Hide Labeled mode
-            if (state.hideLabeled) {
-                let unlabeledCount = 0;
-                for (const file of state.fileList) {
-                    const labels = state.currentLabels[file.name];
-                    if (!checkIsFinished(labels).isFinished) {
-                        unlabeledCount++;
-                    }
-                }
-
-                if (unlabeledCount === 0) {
-                    renderAllDoneState();
-                    return;
-                }
-            }
-
-            // --- Standard View ---
-
-            // Re-enable buttons if they were disabled by All Done state
-            const btnDelete = document.getElementById('btn-delete-json');
-            if (btnDelete) btnDelete.disabled = false;
-
-            const btnZoomIn = document.getElementById('btn-zoom-in');
-            if (btnZoomIn) btnZoomIn.disabled = false;
-
-            const btnZoomOut = document.getElementById('btn-zoom-out');
-            if (btnZoomOut) btnZoomOut.disabled = false;
-
-            const btnResetView = document.getElementById('btn-reset-view');
-            if (btnResetView) btnResetView.disabled = false;
-
-
-            // Update Layout
-            const leftPanel = document.getElementById('left-panel');
-            if (leftPanel) leftPanel.style.width = `${state.imageAreaRatio}%`;
-
-            // Update Nav (Handle Hide Labeled Counting)
-            const pageInd = document.getElementById('page-indicator');
-            if (pageInd) {
-                let currentDisplayIndex = state.currentIndex + 1;
-                let totalDisplayCount = state.fileList.length;
-
-                if (state.hideLabeled) {
-                    let count = 0;
-                    let myPos = -1;
-                    for (let i = 0; i < state.fileList.length; i++) {
-                        const f = state.fileList[i];
-                        const labels = state.currentLabels[f.name];
-                        if (!checkIsFinished(labels).isFinished) {
-                            count++;
-                            if (i === state.currentIndex) myPos = count;
-                        } else if (i === state.currentIndex) {
-                            // Current is finished but briefly shown
-                            myPos = count + 1;
-                        }
-                    }
-                    pageInd.innerHTML = `${myPos !== -1 ? myPos : '-'} <span style="color:#6b7280">/ ${count}</span>`;
-                } else {
-                    // Normal Mode
-                    pageInd.innerHTML = `${currentDisplayIndex} <span style="color:#6b7280">/ ${totalDisplayCount}</span>`;
-                }
-            }
-
-            const btnPrev = document.getElementById('btn-prev');
-            const btnNext = document.getElementById('btn-next');
-            if (btnPrev) btnPrev.disabled = state.currentIndex <= 0 || state.isSkipping;
-            if (btnNext) btnNext.disabled = state.currentIndex >= state.fileList.length - 1 || state.isSkipping;
-
-            // Update Toggles
-            const btnHide = document.getElementById('btn-hide-labeled');
-            if (btnHide) btnHide.className = `tool-btn ${state.hideLabeled ? 'active' : ''}`;
-
-            const btnAuto = document.getElementById('btn-auto-next');
-            if (btnAuto) btnAuto.className = `tool-btn ${state.autoNext ? 'active-green' : ''}`;
-
-            // Load Image
-            const imgContainer = document.getElementById('pan-zoom-target');
-            const infobar = document.getElementById('lp-infobar');
-            const currentFile = state.fileList[state.currentIndex];
-
-            if (imgContainer && currentFile) {
-                const currentImg = imgContainer.querySelector('img');
-                const loadedName = currentImg ? currentImg.dataset.filename : null;
-
-                if (loadedName !== currentFile.name) {
-                    if (infobar) infobar.textContent = currentFile.name;
-
-                    imgContainer.innerHTML = '';
-                    currentFile.handle.getFile().then(file => {
-                        const img = document.createElement('img');
-                        img.src = URL.createObjectURL(file);
-                        img.dataset.filename = currentFile.name;
-                        img.draggable = false;
-
-                        img.onload = () => {
-                            fitImageToViewer();
-                            const w = img.naturalWidth;
-                            const h = img.naturalHeight;
-                            const divisor = gcd(w, h);
-                            const ratioW = w / divisor;
-                            const ratioH = h / divisor;
-
-                            if (infobar) {
-                                infobar.innerHTML = `${currentFile.name} <span class="dim" style="margin-left:12px;">[ ${w} x ${h} | ${ratioW}:${ratioH} ]</span>`;
-                            }
-                        };
-
-                        if (state.fileList[state.currentIndex].name === currentFile.name) {
-                            imgContainer.innerHTML = '';
-                            imgContainer.appendChild(img);
-                        }
-                    }).catch(() => {
-                        imgContainer.innerHTML = '<div style="color:var(--danger)">Image Load Error</div>';
-                    });
-                }
-            } else if (imgContainer) {
-                imgContainer.innerHTML = `<div style="color:#6b7280; text-align:center;">No Image</div>`;
-                if (infobar) infobar.textContent = '';
-            }
-
-            updateLabelList();
-        }
-
-        function renderAllDoneState() {
-            forceHideTooltip();
-
-            // Reset transform state
-            state.scale = 1;
-            state.position = { x: 0, y: 0 };
-            renderTrans();
-
-            const imgContainer = document.getElementById('pan-zoom-target');
-            const nameBadge = document.getElementById('file-name-badge');
-            const infobar = document.getElementById('lp-infobar');
-
-            if (imgContainer) imgContainer.innerHTML = `
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; color: #9ca3af; height: 100%;">
-                <div style="color: var(--success); margin-bottom: 1rem;">${getIcon('check-circle')}</div>
-                <h2 style="font-size: 1.5rem; font-weight: bold; color: white; margin-bottom: 0.5rem;">All Done!</h2>
-                <p>All images have been labeled.</p>
-                <button onclick="toggleHideLabeled()" style="margin-top: 1.5rem; padding: 0.5rem 1rem; background-color: var(--bg-hover); color: white; border: none; border-radius: 4px; cursor: pointer;">
-                    Show All Images
-                </button>
-            </div>
-        `;
-            if (nameBadge) nameBadge.textContent = "";
-            if (infobar) infobar.textContent = "";
-
-            const listContainer = document.getElementById('label-list-container');
-            if (listContainer) listContainer.innerHTML = `
-            <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: #9ca3af;">
-                <div style="text-align: center;">
-                    <p>No unlabeled images left.</p>
-                </div>
-            </div>
-        `;
-
-            const pageInd = document.getElementById('page-indicator');
-            if (pageInd) pageInd.innerHTML = `<span style="color: var(--success)">Done</span>`;
-
-            // Update Toggles
-            const btnHide = document.getElementById('btn-hide-labeled');
-            if (btnHide) btnHide.className = `tool-btn ${state.hideLabeled ? 'active' : ''}`;
-
-            // Disable Nav and Action Buttons
-            const btnPrev = document.getElementById('btn-prev');
-            if (btnPrev) btnPrev.disabled = true;
-
-            const btnNext = document.getElementById('btn-next');
-            if (btnNext) btnNext.disabled = true;
-
-            const btnDelete = document.getElementById('btn-delete-json');
-            if (btnDelete) btnDelete.disabled = true;
-
-            const btnZoomIn = document.getElementById('btn-zoom-in');
-            if (btnZoomIn) btnZoomIn.disabled = true;
-
-            const btnZoomOut = document.getElementById('btn-zoom-out');
-            if (btnZoomOut) btnZoomOut.disabled = true;
-
-            const btnResetView = document.getElementById('btn-reset-view');
-            if (btnResetView) btnResetView.disabled = true;
-        }
-
-        function updateLabelList() {
-            const container = document.getElementById('label-list-container');
-            if (!container) return;
-            container.innerHTML = '';
-
-            const currentFile = state.fileList[state.currentIndex];
-            if (!currentFile) return;
-
-            const labels = state.currentLabels[currentFile.name] || {};
-            const status = checkIsFinished(labels);
-
-            if (state.hideLabeled && status.isFinished) {
-                container.innerHTML = `
-                <div style="height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#9ca3af;">
-                    <div style="font-weight:bold;">Skipping...</div>
-                    <div style="font-size:0.8rem;">Skipping labeled images</div>
-                </div>
-            `;
-                return;
-            }
-
-            let skipRemaining = false;
-            state.labelConfig.forEach((item, index) => {
-                const val = labels[item.label_id];
-                const isDisabled = skipRemaining;
-                const row = createLabelRow(index, item, val, isDisabled);
-                container.appendChild(row);
-
-                if (val !== undefined && val !== null && item.end_flag_value !== undefined && val === item.end_flag_value) {
-                    skipRemaining = true;
-                }
-            });
-
-            // Adjust text sizes after rendering
-            adjustAllTextSizes();
-        }
-
-        function createLabelRow(index, item, val, isDisabled) {
-            const row = document.createElement('div');
-            row.className = `label-row ${isDisabled ? 'disabled' : ''}`;
-            row.style.minHeight = `${state.rowMinHeight}px`;
-
-            const nameArea = document.createElement('div');
-            nameArea.className = 'row-name';
-            nameArea.innerHTML = `
-            <span class="row-idx">${index + 1}.</span>
-            <div class="row-name-text">
-                <span class="auto-fit-text">${item.label_name}</span>
-            </div>
-        `;
-
-            if (item.description) {
-                nameArea.classList.add('has-tooltip');
-                nameArea.setAttribute('data-tooltip', item.description);
-                nameArea.addEventListener('mouseenter', handleMouseEnter);
-                nameArea.addEventListener('mouseleave', handleMouseLeave);
-            }
-
-            row.appendChild(nameArea);
-
-            const clearArea = document.createElement('div');
-            clearArea.className = 'row-clear';
-            const isNull = val === null || val === undefined;
-
-            if (item.mask_option) {
-                const maskOpt = item.mask_option;
-                const isSelected = val === maskOpt.option_value;
-
-                const btn = document.createElement('button');
-                btn.className = `clear-btn ${isSelected ? 'active' : ''}`;
-                btn.disabled = isDisabled;
-
-                // Wrap text for auto-sizing
-                btn.innerHTML = `<span class="auto-fit-text">${maskOpt.option_name || 'Mask'}</span>`;
-
-                if (maskOpt.description) {
-                    btn.classList.add('has-tooltip');
-                    btn.setAttribute('data-tooltip', maskOpt.description);
-                    btn.addEventListener('mouseenter', handleMouseEnter);
-                    btn.addEventListener('mouseleave', handleMouseLeave);
-                }
-
-                btn.onclick = () => updateLabel(item.label_id, maskOpt.option_value);
-                clearArea.appendChild(btn);
-            } else {
-                const btn = document.createElement('button');
-                btn.className = 'clear-btn';
-                btn.disabled = true;
-                btn.innerText = '-';
-                clearArea.appendChild(btn);
-            }
-            row.appendChild(clearArea);
-
-            const optArea = document.createElement('div');
-            optArea.className = 'row-options';
-
-            item.options.forEach(opt => {
-                const isSelected = val === opt.option_value;
-                const btn = document.createElement('button');
-                btn.className = `option-btn ${isSelected ? 'selected' : ''}`;
-                btn.disabled = isDisabled;
-
-                // Adjust Font Size handled by JS now
-                // let fs = '1rem'; ... removed logic
-
-                btn.innerHTML = `<span class="opt-text auto-fit-text">${opt.option_name}</span>`;
-
-                if (opt.description) {
-                    btn.classList.add('has-tooltip');
-                    btn.setAttribute('data-tooltip', opt.description);
-                    btn.addEventListener('mouseenter', handleMouseEnter);
-                    btn.addEventListener('mouseleave', handleMouseLeave);
-                }
-
-                btn.onclick = () => updateLabel(item.label_id, opt.option_value);
-                optArea.appendChild(btn);
-            });
-
-            row.appendChild(optArea);
-            return row;
-        }
-
-        // ==========================================
-        // 3. Logic & Actions
-        // ==========================================
+        // --- Logic & Actions ---
 
         function updateSetting(key, value) {
             state[key] = parseInt(value);
             const valEl = document.getElementById(`val-${key}`);
             if (valEl) {
-                const unit = valEl.dataset.unit || '';
-                valEl.textContent = `${value}${unit}`;
+                valEl.textContent = `${value}${valEl.dataset.unit || ''}`;
+            }
+            if (key === 'rowMinHeight' || key === 'imageAreaRatio') {
+                state.fontSizeCache = {};
             }
             if (state.view === 'labeling') updateLabelingView();
         }
@@ -1985,7 +1408,6 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             try {
                 const handle = await window.showDirectoryPicker({ id: 'input', mode: 'read' });
                 state.inputDirHandle = handle;
-                await resetFileList();
                 state.errorMsg = '';
             } catch (err) {
                 if (err.name !== 'AbortError') state.errorMsg = "Folder Selection Error";
@@ -2004,158 +1426,304 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             render();
         }
 
-        async function resetFileList() {
-            if (!state.inputDirHandle) return;
-            const list = [];
-            for await (const entry of state.inputDirHandle.values()) {
-                if (entry.kind === 'file') {
-                    const ext = entry.name.toLowerCase().match(/\.[^.]+$/);
-                    if (ext && SUPPORTED_EXTENSIONS.includes(ext[0])) {
-                        list.push({ name: entry.name, handle: entry });
-                    }
-                }
-            }
-            if (state.randomOrder) {
-                for (let i = list.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [list[i], list[j]] = [list[j], list[i]];
-                }
-            } else {
-                list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-            }
-            state.fileList = list;
+        function copySample() {
+            navigator.clipboard.writeText(JSON.stringify(SAMPLE_CONFIG, null, 2)).then(() => alert('Copied!'));
         }
+        function downloadSample() {
+            const blob = new Blob([JSON.stringify(SAMPLE_CONFIG, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'sample_config.json';
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a); URL.revokeObjectURL(url);
+        }
+
+        // ==========================================
+        // Main Logic (Scan & Label)
+        // ==========================================
 
         async function startApp() {
             if (!state.inputDirHandle || !state.labelConfig || !state.outputDirHandle) return;
+            state.fontSizeCache = {};
+            
+            // Initial Scan
+            await scanFilesAndStatuses();
+            
             if (state.fileList.length === 0) {
                 state.errorMsg = "No image files found";
+                showLoader(false);
                 render();
                 return;
             }
+
             state.view = 'labeling';
             state.currentIndex = 0;
-            state.currentLabels = {};
-
-            // Scan Existing JSONs first
-            await loadAllExistingJsons();
-
-            // Then start regular polling
-            startPolling();
-
+            state.activeLabels = {};
+            state.hasExistingJson = false;
+            
+            // Load first image
+            await loadLabelForCurrentFile();
             resetView();
             render();
         }
 
+        async function reloadAll() {
+            // Show loader specifically for reload
+            showLoader(true, 'Reloading...', 'Scanning files and labels...');
+            
+            // Allow UI to render loader before processing
+            await new Promise(r => setTimeout(r, 10));
+
+            await scanFilesAndStatuses();
+            
+            // Validate current index
+            if (state.currentIndex >= state.fileList.length) {
+                state.currentIndex = Math.max(0, state.fileList.length - 1);
+            }
+            
+            if (state.fileList.length > 0) {
+                 await loadLabelForCurrentFile();
+            }
+            
+            // Hide loader is handled inside scanFilesAndStatuses, but just in case we override or add logic
+            showStatus("Reloaded", false);
+            render();
+        }
+
+        async function scanFilesAndStatuses() {
+            showLoader(true, 'Scanning Files...', 'Getting file lists...');
+            
+            try {
+                const fileList = [];
+                const jsonMap = new Map(); // filename -> FileSystemFileHandle
+
+                // 1. Get all JSONs first
+                for await (const entry of state.outputDirHandle.values()) {
+                    if (entry.kind === 'file' && entry.name.endsWith('.json')) {
+                        jsonMap.set(entry.name, entry);
+                    }
+                }
+
+                // 2. Get all Images
+                const images = [];
+                for await (const entry of state.inputDirHandle.values()) {
+                    if (entry.kind === 'file') {
+                        const ext = entry.name.toLowerCase().match(/\.[^.]+$/);
+                        if (ext && SUPPORTED_EXTENSIONS.includes(ext[0])) {
+                            images.push(entry);
+                        }
+                    }
+                }
+
+                // Sort images
+                if (state.randomOrder) {
+                    for (let i = images.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [images[i], images[j]] = [images[j], images[i]];
+                    }
+                } else {
+                    images.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+                }
+
+                // 3. Check status for each image
+                // To avoid freezing UI on 5000 files, we process in chunks
+                const chunkSize = 50;
+                let processed = 0;
+
+                for (let i = 0; i < images.length; i += chunkSize) {
+                    const chunk = images.slice(i, i + chunkSize);
+                    
+                    // Update Loader UI
+                    showLoader(true, 'Scanning Status...', `${processed} / ${images.length}`);
+                    
+                    // Allow UI to breathe
+                    await new Promise(r => setTimeout(r, 0));
+
+                    const promises = chunk.map(async (imgHandle) => {
+                        const baseName = imgHandle.name.replace(/\.[^.]+$/, "");
+                        const jsonName = baseName + ".json";
+                        const jsonHandle = jsonMap.get(jsonName);
+                        let isDone = false;
+
+                        if (jsonHandle) {
+                            try {
+                                const file = await jsonHandle.getFile();
+                                const text = await file.text();
+                                const json = JSON.parse(text);
+                                isDone = checkIsFinished(json).isFinished;
+                            } catch (e) {
+                                // Error reading JSON, assume not done
+                            }
+                        }
+
+                        return {
+                            name: imgHandle.name,
+                            handle: imgHandle.handle, // wait, entry itself IS the handle if iterated from values()
+                            // correction: entry is the handle.
+                            isDone: isDone
+                        };
+                    });
+
+                    const results = await Promise.all(promises);
+                    // Correct handle mapping: chunk items are already handles
+                    results.forEach((res, idx) => {
+                        res.handle = chunk[idx];
+                    });
+                    
+                    fileList.push(...results);
+                    processed += chunk.length;
+                }
+
+                state.fileList = fileList;
+
+            } catch (e) {
+                console.error(e);
+                alert("Error scanning files: " + e.message);
+            } finally {
+                showLoader(false);
+            }
+        }
+
+        async function loadLabelForCurrentFile() {
+            if (state.fileList.length === 0) return;
+            const item = state.fileList[state.currentIndex];
+            
+            const baseName = item.name.replace(/\.[^.]+$/, "");
+            const jsonName = baseName + ".json";
+            
+            state.activeLabels = {}; // Clear previous
+            state.hasExistingJson = false;
+
+            try {
+                const handle = await state.outputDirHandle.getFileHandle(jsonName);
+                const file = await handle.getFile();
+                const text = await file.text();
+                state.activeLabels = JSON.parse(text);
+                state.hasExistingJson = true;
+                
+                // Update done status while we are here, just in case
+                const status = checkIsFinished(state.activeLabels);
+                item.isDone = status.isFinished;
+                
+            } catch (e) {
+                // No JSON exists or error -> empty labels
+                state.activeLabels = {};
+                state.hasExistingJson = false;
+            }
+        }
+
         function goHome() {
             state.view = 'initial';
-            stopPolling();
             render();
         }
 
-        async function loadJsonForFile(fileItem) {
-            const jsonName = fileItem.name.replace(/\.[^.]+$/, "") + ".json";
-            try {
-                const h = await state.outputDirHandle.getFileHandle(jsonName);
-                const f = await h.getFile();
-                state.lastJsonModified = f.lastModified;
-                const t = await f.text();
-                return JSON.parse(t);
-            } catch (e) { return {}; }
-        }
-
-        async function loadExistingJson() {
-            const f = state.fileList[state.currentIndex];
-            if (!f) return;
-            const json = await loadJsonForFile(f);
-            state.currentLabels[f.name] = json;
-            showStatus('Loaded', false);
-        }
-
+        // --- Label Updating ---
         function updateLabel(labelId, value) {
-            const f = state.fileList[state.currentIndex];
-            if (!f) return;
-            if (!state.currentLabels[f.name]) state.currentLabels[f.name] = {};
+            state.activeLabels[labelId] = value;
+            
+            // Recalculate done status
+            const status = checkIsFinished(state.activeLabels);
+            const currentItem = state.fileList[state.currentIndex];
+            currentItem.isDone = status.isFinished;
+            
+            render(); // Update UI immediately
+            
+            triggerSave();
 
-            state.currentLabels[f.name][labelId] = value;
-            render();
-
-            triggerSave(f);
-
-            const status = checkIsFinished(state.currentLabels[f.name]);
             if ((state.autoNext || state.hideLabeled) && status.isFinished) {
                 setTimeout(() => changeImage(1), 300);
             }
         }
 
-        async function triggerSave(fileItem) {
-            state.pendingSaveFile = fileItem;
+        async function triggerSave() {
+            const item = state.fileList[state.currentIndex];
+            state.pendingSaveFile = item;
             if (!state.isSaving) processSaveQueue();
         }
 
         async function processSaveQueue() {
             if (!state.pendingSaveFile) {
                 state.isSaving = false;
-                showStatus("Saved!", false);
+                // DO NOT show "Saved!" here unconditionally, as it might overwrite "Overwrite Denied"
                 return;
             }
+
             state.isSaving = true;
-            showStatus("Saving...", false);
             const item = state.pendingSaveFile;
             state.pendingSaveFile = null;
+            showStatus("Saving...", false);
 
             try {
-                const currentData = state.currentLabels[item.name];
-                if (currentData && Object.keys(currentData).length > 0) {
-                    const jsonName = item.name.replace(/\.[^.]+$/, "") + ".json";
-
-                    let exists = false;
+                const baseName = item.name.replace(/\.[^.]+$/, "");
+                const jsonName = baseName + ".json";
+                
+                let proceed = true;
+                if (!state.allowOverwrite) {
                     try {
                         await state.outputDirHandle.getFileHandle(jsonName);
-                        exists = true;
-                    } catch (e) { }
-
-                    if (!exists || state.allowOverwrite) {
-                        const h = await state.outputDirHandle.getFileHandle(jsonName, { create: true });
-                        const w = await h.createWritable();
-                        await w.write(JSON.stringify(currentData, null, 2));
-                        await w.close();
-
-                        const f = await h.getFile();
-                        state.lastJsonModified = f.lastModified;
+                        // Exists
+                        proceed = false; 
+                    } catch(e) {
+                        // Not exists
+                        proceed = true;
                     }
                 }
-            } catch (err) {
-                console.error(err);
+
+                if (proceed) {
+                    const h = await state.outputDirHandle.getFileHandle(jsonName, { create: true });
+                    const w = await h.createWritable();
+
+                    // Sort keys based on labelConfig
+                    const orderedLabels = {};
+                    if (state.labelConfig && Array.isArray(state.labelConfig)) {
+                        // 1. Add keys present in config, in config order
+                        state.labelConfig.forEach(item => {
+                            if (Object.prototype.hasOwnProperty.call(state.activeLabels, item.label_id)) {
+                                orderedLabels[item.label_id] = state.activeLabels[item.label_id];
+                            }
+                        });
+                        // 2. (Optional) Add remaining keys that are not in config (to prevent data loss)
+                        Object.keys(state.activeLabels).forEach(key => {
+                            if (!orderedLabels.hasOwnProperty(key)) {
+                                orderedLabels[key] = state.activeLabels[key];
+                            }
+                        });
+                    } else {
+                        // Fallback
+                        Object.assign(orderedLabels, state.activeLabels);
+                    }
+
+                    await w.write(JSON.stringify(orderedLabels, null, 2));
+                    await w.close();
+                    state.hasExistingJson = true; // Update state after save
+                    showStatus("Saved!", false); // Success Message HERE
+                } else {
+                    showStatus("Overwrite Denied", true); // Failure Message HERE
+                }
+            } catch(e) {
+                console.error(e);
                 showStatus("Save Failed", true);
             }
+            
             processSaveQueue();
         }
 
-        // --- Delete Function ---
         async function deleteCurrentJson() {
-            const currentFile = state.fileList[state.currentIndex];
-            if (!currentFile) return;
+            const item = state.fileList[state.currentIndex];
+            if (!confirm(`Delete labels for "${item.name}"?`)) return;
 
-            if (!confirm(`Are you sure you want to delete the labels for "${currentFile.name}"?`)) {
-                return;
-            }
-
-            const jsonName = currentFile.name.replace(/\.[^.]+$/, "") + ".json";
+            const baseName = item.name.replace(/\.[^.]+$/, "");
+            const jsonName = baseName + ".json";
+            
             try {
                 await state.outputDirHandle.removeEntry(jsonName);
-                // Clear memory state
-                delete state.currentLabels[currentFile.name];
-                // Update UI
-                updateLabelList();
-                showStatus("Labels Deleted", true);
-            } catch (err) {
-                if (err.name === 'NotFoundError') {
-                    showStatus("No Labels Found", true);
-                } else {
-                    console.error(err);
-                    showStatus("Delete Failed", true);
-                }
+                state.activeLabels = {};
+                item.isDone = false;
+                state.hasExistingJson = false;
+                render();
+                showStatus("Deleted", true);
+            } catch(e) {
+                showStatus("Error", true);
             }
         }
 
@@ -2171,87 +1739,86 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             return { isFinished: true };
         }
 
-        async function findNextUnlabeledIndex(startIdx, delta) {
-            let idx = startIdx + delta;
-            let checks = 0;
-            const max = state.fileList.length;
-            showStatus("Searching...", false);
-            while (idx >= 0 && idx < state.fileList.length && checks < max) {
-                const f = state.fileList[idx];
-                const json = await loadJsonForFile(f);
-                if (!checkIsFinished(json).isFinished) return idx;
-                idx += delta;
-                checks++;
-            }
-            return -1;
-        }
-
+        // --- Navigation ---
+        
         async function changeImage(delta) {
-            forceHideTooltip(); // Clear tooltip on image change
-
+            forceHideTooltip();
             if (state.isSkipping) return;
+
             let nextIdx = state.currentIndex + delta;
 
             if (state.hideLabeled) {
+                // Find next file where isDone == false
                 state.isSkipping = true;
-                render();
-                const target = await findNextUnlabeledIndex(state.currentIndex, delta);
-                state.isSkipping = false;
-                if (target !== -1) nextIdx = target;
-                else {
-                    showStatus("No more images", true);
-                    render();
+                
+                // Simple search in memory list
+                let found = -1;
+                let direction = delta > 0 ? 1 : -1;
+                let i = state.currentIndex + direction;
+                
+                while(i >= 0 && i < state.fileList.length) {
+                    if (!state.fileList[i].isDone) {
+                        found = i;
+                        break;
+                    }
+                    i += direction;
+                }
+                
+                if (found !== -1) {
+                    nextIdx = found;
+                } else {
+                    state.isSkipping = false;
+                    showStatus(delta > 0 ? "No more unlabeled" : "No prev unlabeled", true);
+                    render(); // to update button states
                     return;
                 }
+                state.isSkipping = false;
             }
 
             if (nextIdx >= 0 && nextIdx < state.fileList.length) {
-                triggerSave(state.fileList[state.currentIndex]);
                 state.currentIndex = nextIdx;
+                // Before rendering, load data
+                await loadLabelForCurrentFile();
                 resetView();
-                render();
-                await loadExistingJson();
                 render();
             }
         }
 
         async function toggleHideLabeled() {
             state.hideLabeled = !state.hideLabeled;
-            render();
-            if (state.hideLabeled) {
-                const f = state.fileList[state.currentIndex];
-                const l = state.currentLabels[f.name];
-
-                // If current is finished, move away
-                if (l && checkIsFinished(l).isFinished) {
-                    // Try finding next forward
-                    let target = await findNextUnlabeledIndex(state.currentIndex, 1);
-
-                    // If not found forward, try finding from start
-                    if (target === -1) {
-                        target = await findNextUnlabeledIndex(-1, 1);
+            
+            const currentItem = state.fileList[state.currentIndex];
+            if (state.hideLabeled && currentItem.isDone) {
+                state.isSkipping = true;
+                // Current is done, move to next available
+                // Try forward first
+                let found = -1;
+                for (let i = state.currentIndex + 1; i < state.fileList.length; i++) {
+                    if (!state.fileList[i].isDone) {
+                        found = i;
+                        break;
                     }
-
-                    if (target !== -1) {
-                        state.currentIndex = target;
-                        // Important: trigger a load/render cycle
-                        resetView();
-                        render();
-                        await loadExistingJson();
-                        render();
-                    } else {
-                        // No unlabeled found anywhere
-                        renderAllDoneState();
-                    }
-                } else {
-                    // Check if actually all done (even if current is unfinished, which is paradoxical but logic-safe)
-                    let unlabeledCount = 0;
-                    for (const file of state.fileList) {
-                        if (!checkIsFinished(state.currentLabels[file.name]).isFinished) unlabeledCount++;
-                    }
-                    if (unlabeledCount === 0) renderAllDoneState();
                 }
+                
+                // If not found forward, try backward from start
+                if (found === -1) {
+                    for (let i = 0; i < state.currentIndex; i++) {
+                        if (!state.fileList[i].isDone) {
+                            found = i;
+                            break;
+                        }
+                    }
+                }
+                
+                if (found !== -1) {
+                    state.currentIndex = found;
+                    await loadLabelForCurrentFile();
+                    resetView();
+                }
+                
+                state.isSkipping = false;
             }
+            render();
         }
 
         function toggleAutoNext() { state.autoNext = !state.autoNext; render(); }
@@ -2261,64 +1828,363 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             const el = document.getElementById('status-display');
             if (el) {
                 el.textContent = msg;
-                el.style.color = isErr ? '#f87171' : '#34d399';
-                if (msg === "Saved!" || msg === "Loaded" || msg.startsWith("Sync") || msg === "Labels Deleted") {
+                if (msg === "Read Only") {
+                    el.style.color = 'var(--warning)';
+                } else {
+                    el.style.color = isErr ? '#f87171' : '#34d399';
+                }
+                
+                if (msg === "Saved!" || msg === "Loaded" || msg === "Reloaded" || msg === "Deleted" || msg === "Overwrite Denied") {
                     clearTimeout(statusTimer);
                     statusTimer = setTimeout(() => { if (el) el.textContent = ''; }, 2000);
                 }
             }
         }
 
-        // --- Viewer Logic ---
-        function resetView() {
-            fitImageToViewer();
+        // --- Render Helpers ---
+
+        function updateLabelingView() {
+            forceHideTooltip();
+            
+            // Check all done state (visual only)
+            // Actually, we can check if visible count is 0
+            if (state.hideLabeled) {
+                const hasUnlabeled = state.fileList.some(f => !f.isDone);
+                if (!hasUnlabeled) {
+                    renderAllDoneState();
+                    return;
+                }
+            }
+
+            // --- Normal View ---
+            // Re-enable nav buttons (might be disabled by All Done)
+            const btnDelete = document.getElementById('btn-delete-json');
+            if (btnDelete) btnDelete.disabled = false;
+            const btnZoomIn = document.getElementById('btn-zoom-in');
+            if (btnZoomIn) btnZoomIn.disabled = false;
+            const btnZoomOut = document.getElementById('btn-zoom-out');
+            if (btnZoomOut) btnZoomOut.disabled = false;
+            const btnReset = document.getElementById('btn-reset-view');
+            if (btnReset) btnReset.disabled = false;
+
+            // Check lock status
+            const isLocked = !state.allowOverwrite && state.hasExistingJson;
+            if (isLocked) {
+                showStatus("Read Only", false);
+            } else if (document.getElementById('status-display').textContent === "Read Only") {
+                showStatus("", false);
+            }
+
+            // Layout adjustments
+            const leftPanel = document.getElementById('left-panel');
+            if (leftPanel) leftPanel.style.width = `${state.imageAreaRatio}%`;
+
+            // Navigation State
+            const pageInd = document.getElementById('page-indicator');
+            if (pageInd) {
+                let dispIdx = state.currentIndex + 1;
+                let total = state.fileList.length;
+                if (state.hideLabeled) {
+                    // Calculate "Page X of Y unlabeled"
+                    const unlabeledTotal = state.fileList.filter(f => !f.isDone).length;
+                    const unlabeledBefore = state.fileList.slice(0, state.currentIndex + 1).filter(f => !f.isDone).length;
+                    
+                    if (state.fileList[state.currentIndex].isDone) {
+                         // Should not happen usually due to changeImage logic, but handling edge case
+                         pageInd.innerHTML = `- <span style="color:#6b7280">/ ${unlabeledTotal}</span>`;
+                    } else {
+                         pageInd.innerHTML = `${unlabeledBefore} <span style="color:#6b7280">/ ${unlabeledTotal}</span>`;
+                    }
+                } else {
+                    pageInd.innerHTML = `${dispIdx} <span style="color:#6b7280">/ ${total}</span>`;
+                }
+            }
+
+            const btnPrev = document.getElementById('btn-prev');
+            const btnNext = document.getElementById('btn-next');
+            if (btnPrev) btnPrev.disabled = state.currentIndex <= 0;
+            if (btnNext) btnNext.disabled = state.currentIndex >= state.fileList.length - 1;
+
+            const btnHide = document.getElementById('btn-hide-labeled');
+            if (btnHide) btnHide.className = `tool-btn ${state.hideLabeled ? 'active' : ''}`;
+            const btnAuto = document.getElementById('btn-auto-next');
+            if (btnAuto) btnAuto.className = `tool-btn ${state.autoNext ? 'active-green' : ''}`;
+
+            // Image
+            const imgContainer = document.getElementById('pan-zoom-target');
+            const infobar = document.getElementById('lp-infobar');
+            const currentItem = state.fileList[state.currentIndex];
+
+            if (imgContainer && currentItem) {
+                // Check if current image is already loaded correctly
+                const currentImg = imgContainer.querySelector('img');
+                const loadedName = currentImg ? currentImg.dataset.filename : null;
+
+                if (loadedName !== currentItem.name) {
+                    if (infobar) infobar.textContent = currentItem.name;
+                    
+                    // Clear container FIRST to avoid double images
+                    imgContainer.innerHTML = ''; 
+                    
+                    currentItem.handle.getFile().then(file => {
+                        // Check index again to prevent race condition
+                        if (state.fileList[state.currentIndex].name !== currentItem.name) return;
+
+                        const img = document.createElement('img');
+                        img.src = URL.createObjectURL(file);
+                        img.dataset.filename = currentItem.name;
+                        img.draggable = false;
+                        img.onload = () => {
+                            fitImageToViewer();
+                            const w = img.naturalWidth;
+                            const h = img.naturalHeight;
+                            const gcdVal = gcd(w, h);
+                            if (infobar) infobar.innerHTML = `${currentItem.name} <span class="dim" style="margin-left:12px;">[ ${w} x ${h} | ${w/gcdVal}:${h/gcdVal} ]</span>`;
+                        };
+                        
+                        // Double check before appending
+                        imgContainer.innerHTML = '';
+                        imgContainer.appendChild(img);
+                    });
+                }
+            }
+
+            // Right List (Labels)
+            updateLabelList();
         }
 
+        function renderAllDoneState() {
+            forceHideTooltip();
+
+            // Reset transform state
+            state.scale = 1;
+            state.position = { x: 0, y: 0 };
+            renderTrans();
+
+            const imgContainer = document.getElementById('pan-zoom-target');
+            const infobar = document.getElementById('lp-infobar');
+            
+            if (imgContainer) imgContainer.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; color: #9ca3af; height: 100%;">
+                <div style="color: var(--success); margin-bottom: 1rem;">${getIcon('check-circle')}</div>
+                <h2 style="font-size: 1.5rem; font-weight: bold; color: white; margin-bottom: 0.5rem;">All Done!</h2>
+                <p>All images have been labeled.</p>
+                <button onclick="toggleHideLabeled()" style="margin-top: 1.5rem; padding: 0.5rem 1rem; background-color: var(--bg-hover); color: white; border: none; border-radius: 4px; cursor: pointer;">Show All Images</button>
+            </div>`;
+            
+            if (infobar) infobar.textContent = "";
+            const pageInd = document.getElementById('page-indicator');
+            if (pageInd) pageInd.innerHTML = `<span style="color: var(--success)">Done</span>`;
+            
+            const btnHide = document.getElementById('btn-hide-labeled');
+            if (btnHide) btnHide.className = `tool-btn ${state.hideLabeled ? 'active' : ''}`;
+
+            // Right Panel Message
+            const listContainer = document.getElementById('label-list-container');
+            if (listContainer) listContainer.innerHTML = `
+            <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: #9ca3af;">
+                <div style="text-align: center;">
+                    <p>No unlabeled images left.</p>
+                </div>
+            </div>`;
+
+            // Disable Controls
+            const btnPrev = document.getElementById('btn-prev');
+            if (btnPrev) btnPrev.disabled = true;
+            const btnNext = document.getElementById('btn-next');
+            if (btnNext) btnNext.disabled = true;
+            const btnDelete = document.getElementById('btn-delete-json');
+            if (btnDelete) btnDelete.disabled = true;
+            const btnZoomIn = document.getElementById('btn-zoom-in');
+            if (btnZoomIn) btnZoomIn.disabled = true;
+            const btnZoomOut = document.getElementById('btn-zoom-out');
+            if (btnZoomOut) btnZoomOut.disabled = true;
+            const btnReset = document.getElementById('btn-reset-view');
+            if (btnReset) btnReset.disabled = true;
+        }
+
+        function updateLabelList() {
+            const container = document.getElementById('label-list-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const currentItem = state.fileList[state.currentIndex];
+            if (!currentItem) return;
+
+            const labels = state.activeLabels; // Used loaded active labels
+            let skipRemaining = false;
+            
+            const isLocked = !state.allowOverwrite && state.hasExistingJson;
+
+            state.labelConfig.forEach((item, index) => {
+                const val = labels[item.label_id];
+                const isDisabled = skipRemaining;
+                const row = createLabelRow(index, item, val, isDisabled, isLocked);
+                container.appendChild(row);
+
+                if (val !== undefined && val !== null && item.end_flag_value !== undefined && val === item.end_flag_value) {
+                    skipRemaining = true;
+                }
+            });
+            adjustAllTextSizes();
+        }
+
+        function createLabelRow(index, item, val, isDisabled, isLocked) {
+            const row = document.createElement('div');
+            row.className = `label-row ${isDisabled ? 'disabled' : ''}`;
+            row.style.minHeight = `${state.rowMinHeight}px`;
+
+            const nameArea = document.createElement('div');
+            nameArea.className = 'row-name';
+            nameArea.innerHTML = `<span class="row-idx">${index + 1}.</span><div class="row-name-text"><span class="auto-fit-text" data-cache-key="lbl-name-${index}">${item.label_name}</span></div>`;
+            if (item.description) {
+                nameArea.classList.add('has-tooltip');
+                nameArea.setAttribute('data-tooltip', item.description);
+                nameArea.addEventListener('mouseenter', handleMouseEnter);
+                nameArea.addEventListener('mouseleave', handleMouseLeave);
+            }
+            row.appendChild(nameArea);
+
+            const clearArea = document.createElement('div');
+            clearArea.className = 'row-clear';
+
+            if (item.mask_option) {
+                const maskOpt = item.mask_option;
+                const isSelected = val === maskOpt.option_value;
+                const btn = document.createElement('button');
+                btn.className = `clear-btn ${isSelected ? 'active' : ''}`;
+                btn.disabled = isDisabled || isLocked;
+                btn.innerHTML = `<span class="auto-fit-text" data-cache-key="lbl-mask-${index}">${maskOpt.option_name || 'Mask'}</span>`;
+                if (maskOpt.description) {
+                    btn.classList.add('has-tooltip');
+                    btn.setAttribute('data-tooltip', maskOpt.description);
+                    btn.addEventListener('mouseenter', handleMouseEnter);
+                    btn.addEventListener('mouseleave', handleMouseLeave);
+                }
+                btn.onclick = () => updateLabel(item.label_id, maskOpt.option_value);
+                clearArea.appendChild(btn);
+            } else {
+                const btn = document.createElement('button');
+                btn.className = 'clear-btn';
+                btn.disabled = true;
+                btn.innerText = '-';
+                clearArea.appendChild(btn);
+            }
+            row.appendChild(clearArea);
+
+            const optArea = document.createElement('div');
+            optArea.className = 'row-options';
+            item.options.forEach((opt, optIdx) => {
+                const isSelected = val === opt.option_value;
+                const btn = document.createElement('button');
+                btn.className = `option-btn ${isSelected ? 'selected' : ''}`;
+                btn.disabled = isDisabled || isLocked;
+                btn.innerHTML = `<span class="opt-text auto-fit-text" data-cache-key="lbl-opt-${index}-${optIdx}">${opt.option_name}</span>`;
+                if (opt.description) {
+                    btn.classList.add('has-tooltip');
+                    btn.setAttribute('data-tooltip', opt.description);
+                    btn.addEventListener('mouseenter', handleMouseEnter);
+                    btn.addEventListener('mouseleave', handleMouseLeave);
+                }
+                btn.onclick = () => updateLabel(item.label_id, opt.option_value);
+                optArea.appendChild(btn);
+            });
+            row.appendChild(optArea);
+            return row;
+        }
+
+        // --- Common Utils (Zoom/Pan/Cache) ---
+        function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+        function adjustAllTextSizes() {
+            const elements = document.querySelectorAll('.auto-fit-text');
+            elements.forEach(el => adjustFontSize(el.parentElement, el));
+        }
+
+        function adjustFontSize(container, text) {
+            if (!container || !text) return;
+            const cacheKey = text.dataset.cacheKey;
+            if (cacheKey && state.fontSizeCache[cacheKey]) {
+                text.style.fontSize = state.fontSizeCache[cacheKey] + 'px';
+                return;
+            }
+            const style = window.getComputedStyle(container);
+            const w = container.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+            const h = container.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+            if (w <= 0 || h <= 0) return;
+            
+            let min = 10, max = Math.min(w, h * 0.6, 40), optimal = min;
+            text.style.width = 'auto'; text.style.height = 'auto';
+            text.style.whiteSpace = 'nowrap'; text.style.lineHeight = '1';
+            
+            if (max < min) max = min;
+            while (min <= max) {
+                const mid = Math.floor((min + max) / 2);
+                text.style.fontSize = `${mid}px`;
+                if (text.scrollWidth <= w * 0.95 && text.scrollHeight <= h * 0.95) {
+                    optimal = mid; min = mid + 1;
+                } else {
+                    max = mid - 1;
+                }
+            }
+            text.style.fontSize = `${optimal}px`;
+            text.style.whiteSpace = 'normal'; text.style.lineHeight = '';
+            if (cacheKey) state.fontSizeCache[cacheKey] = optimal;
+        }
+
+        window.addEventListener('resize', () => {
+            state.fontSizeCache = {};
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { if (state.view === 'labeling') { fitImageToViewer(); adjustAllTextSizes(); } }, 100);
+        });
+
+        // Tooltip logic
+        function positionTooltip(target) {
+            const text = target.getAttribute('data-tooltip');
+            if (!text) return;
+            tooltipEl.textContent = text;
+            tooltipEl.classList.add('tooltip--visible');
+            const rect = target.getBoundingClientRect();
+            const tipRect = tooltipEl.getBoundingClientRect();
+            let top = rect.top - tipRect.height - 8;
+            let left = rect.left + (rect.width - tipRect.width) / 2;
+            if (left < 4) left = 4;
+            if (top < 4) top = rect.bottom + 8;
+            tooltipEl.style.top = top + 'px'; tooltipEl.style.left = left + 'px';
+        }
+        function handleMouseEnter(e) {
+            const t = e.currentTarget;
+            if (hoverTimer) clearTimeout(hoverTimer);
+            hoverTimer = setTimeout(() => positionTooltip(t), 1000);
+        }
+        function handleMouseLeave() {
+            if (hoverTimer) clearTimeout(hoverTimer);
+            tooltipEl.classList.remove('tooltip--visible');
+        }
+        function forceHideTooltip() {
+            if (hoverTimer) clearTimeout(hoverTimer);
+            tooltipEl.classList.remove('tooltip--visible');
+        }
+
+        // Viewer logic
+        function resetView() { fitImageToViewer(); }
         function fitImageToViewer() {
             const v = document.getElementById('image-viewer');
             const t = document.getElementById('pan-zoom-target');
             if (!v || !t) return;
             const img = t.querySelector('img');
             if (!img || !img.naturalWidth) return;
-
-            const scale = Math.min(v.clientWidth / img.naturalWidth, v.clientHeight / img.naturalHeight) * 0.95;
-            state.scale = scale;
+            state.scale = Math.min(v.clientWidth / img.naturalWidth, v.clientHeight / img.naturalHeight) * 0.95;
             state.position = { x: 0, y: 0 };
             renderTrans();
         }
-
-        function zoom(amt) {
-            state.scale = Math.min(Math.max(0.1, state.scale + amt), 10);
-            renderTrans();
-        }
-
-        function handleWheel(e) {
-            e.preventDefault();
-            state.scale = Math.min(Math.max(0.1, state.scale - e.deltaY * 0.001), 10);
-            renderTrans();
-        }
-
-        function startDrag(e) {
-            if (e.button !== 0) return;
-            state.isDragging = true;
-            state.dragStart = { x: e.clientX - state.position.x, y: e.clientY - state.position.y };
-        }
-
-        function onDrag(e) {
-            if (!state.isDragging) return;
-            e.preventDefault();
-            state.position = { x: e.clientX - state.dragStart.x, y: e.clientY - state.dragStart.y };
-            renderTrans();
-        }
-
+        function zoom(amt) { state.scale = Math.min(Math.max(0.1, state.scale + amt), 10); renderTrans(); }
+        function handleWheel(e) { e.preventDefault(); state.scale = Math.min(Math.max(0.1, state.scale - e.deltaY * 0.001), 10); renderTrans(); }
+        function startDrag(e) { if (e.button === 0) { state.isDragging = true; state.dragStart = { x: e.clientX - state.position.x, y: e.clientY - state.position.y }; } }
+        function onDrag(e) { if (state.isDragging) { e.preventDefault(); state.position = { x: e.clientX - state.dragStart.x, y: e.clientY - state.dragStart.y }; renderTrans(); } }
         function endDrag() { state.isDragging = false; }
+        function renderTrans() { const t = document.getElementById('pan-zoom-target'); if (t) t.style.transform = `translate(${state.position.x}px, ${state.position.y}px) scale(${state.scale})`; }
 
-        function renderTrans() {
-            const t = document.getElementById('pan-zoom-target');
-            if (t) t.style.transform = `translate(${state.position.x}px, ${state.position.y}px) scale(${state.scale})`;
-        }
-
-        // Initialize
         render();
     </script>
 </body>
