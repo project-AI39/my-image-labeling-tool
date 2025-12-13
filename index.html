@@ -1628,8 +1628,12 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                     if (startNullifying) {
                         state.activeLabels[item.label_id] = null;
                     } else if (item.label_id === labelId) {
-                        // If this label has an end_flag_value and the selected value matches it
-                        if (item.end_flag_value !== undefined && item.end_flag_value === value) {
+                        // We found the label that was just clicked.
+                        // Check if this specific label triggers the end flag.
+                        // Strict check: value must not be null/undefined and must match end_flag_value
+                        if (value !== null && value !== undefined &&
+                            item.end_flag_value !== undefined &&
+                            item.end_flag_value === value) {
                             startNullifying = true;
                         }
                     }
