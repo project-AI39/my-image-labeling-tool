@@ -1620,6 +1620,21 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         // --- Label Updating ---
         function updateLabel(labelId, value) {
             state.activeLabels[labelId] = value;
+
+            // Check for end_flag_value and nullify subsequent labels
+            let startNullifying = false;
+            if (state.labelConfig) {
+                for (const item of state.labelConfig) {
+                    if (startNullifying) {
+                        state.activeLabels[item.label_id] = null;
+                    } else if (item.label_id === labelId) {
+                        // If this label has an end_flag_value and the selected value matches it
+                        if (item.end_flag_value !== undefined && item.end_flag_value === value) {
+                            startNullifying = true;
+                        }
+                    }
+                }
+            }
             
             // Recalculate done status
             const status = checkIsFinished(state.activeLabels);
