@@ -868,7 +868,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             /* Keep color visible but indicate unclickable */
             opacity: 0.9;
         }
-        
+
         .option-btn:disabled:not(.selected) {
             opacity: 0.5;
         }
@@ -910,7 +910,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             cursor: not-allowed;
             opacity: 0.5;
         }
-        
+
         .clear-btn:disabled.active {
             opacity: 0.9;
         }
@@ -1445,10 +1445,10 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         async function startApp() {
             if (!state.inputDirHandle || !state.labelConfig || !state.outputDirHandle) return;
             state.fontSizeCache = {};
-            
+
             // Initial Scan
             await scanFilesAndStatuses();
-            
+
             if (state.fileList.length === 0) {
                 state.errorMsg = "No image files found";
                 showLoader(false);
@@ -1460,7 +1460,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             state.currentIndex = 0;
             state.activeLabels = {};
             state.hasExistingJson = false;
-            
+
             // Load first image
             await loadLabelForCurrentFile();
             resetView();
@@ -1470,21 +1470,21 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         async function reloadAll() {
             // Show loader specifically for reload
             showLoader(true, 'Reloading...', 'Scanning files and labels...');
-            
+
             // Allow UI to render loader before processing
             await new Promise(r => setTimeout(r, 10));
 
             await scanFilesAndStatuses();
-            
+
             // Validate current index
             if (state.currentIndex >= state.fileList.length) {
                 state.currentIndex = Math.max(0, state.fileList.length - 1);
             }
-            
+
             if (state.fileList.length > 0) {
-                 await loadLabelForCurrentFile();
+                await loadLabelForCurrentFile();
             }
-            
+
             // Hide loader is handled inside scanFilesAndStatuses, but just in case we override or add logic
             showStatus("Reloaded", false);
             render();
@@ -1492,7 +1492,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 
         async function scanFilesAndStatuses() {
             showLoader(true, 'Scanning Files...', 'Getting file lists...');
-            
+
             try {
                 const fileList = [];
                 const jsonMap = new Map(); // filename -> FileSystemFileHandle
@@ -1532,10 +1532,10 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 
                 for (let i = 0; i < images.length; i += chunkSize) {
                     const chunk = images.slice(i, i + chunkSize);
-                    
+
                     // Update Loader UI
                     showLoader(true, 'Scanning Status...', `${processed} / ${images.length}`);
-                    
+
                     // Allow UI to breathe
                     await new Promise(r => setTimeout(r, 0));
 
@@ -1569,7 +1569,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                     results.forEach((res, idx) => {
                         res.handle = chunk[idx];
                     });
-                    
+
                     fileList.push(...results);
                     processed += chunk.length;
                 }
@@ -1587,10 +1587,10 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         async function loadLabelForCurrentFile() {
             if (state.fileList.length === 0) return;
             const item = state.fileList[state.currentIndex];
-            
+
             const baseName = item.name.replace(/\.[^.]+$/, "");
             const jsonName = baseName + ".json";
-            
+
             state.activeLabels = {}; // Clear previous
             state.hasExistingJson = false;
 
@@ -1601,11 +1601,11 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                 const parsed = JSON.parse(text);
                 state.activeLabels = parsed.labels;
                 state.hasExistingJson = true;
-                
+
                 // Update done status while we are here, just in case
                 const status = checkIsFinished(state.activeLabels);
                 item.isDone = status.isFinished;
-                
+
             } catch (e) {
                 // No JSON exists or error -> empty labels
                 state.activeLabels = {};
@@ -1640,14 +1640,14 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                     }
                 }
             }
-            
+
             // Recalculate done status
             const status = checkIsFinished(state.activeLabels);
             const currentItem = state.fileList[state.currentIndex];
             currentItem.isDone = status.isFinished;
-            
+
             render(); // Update UI immediately
-            
+
             triggerSave();
 
             if ((state.autoNext || state.hideLabeled) && status.isFinished) {
@@ -1676,14 +1676,14 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             try {
                 const baseName = item.name.replace(/\.[^.]+$/, "");
                 const jsonName = baseName + ".json";
-                
+
                 let proceed = true;
                 if (!state.allowOverwrite) {
                     try {
                         await state.outputDirHandle.getFileHandle(jsonName);
                         // Exists
-                        proceed = false; 
-                    } catch(e) {
+                        proceed = false;
+                    } catch (e) {
                         // Not exists
                         proceed = true;
                     }
@@ -1726,11 +1726,11 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                 } else {
                     showStatus("Overwrite Denied", true); // Failure Message HERE
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error(e);
                 showStatus("Save Failed", true);
             }
-            
+
             processSaveQueue();
         }
 
@@ -1740,7 +1740,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 
             const baseName = item.name.replace(/\.[^.]+$/, "");
             const jsonName = baseName + ".json";
-            
+
             try {
                 await state.outputDirHandle.removeEntry(jsonName);
                 state.activeLabels = {};
@@ -1748,7 +1748,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                 state.hasExistingJson = false;
                 render();
                 showStatus("Deleted", true);
-            } catch(e) {
+            } catch (e) {
                 showStatus("Error", true);
             }
         }
@@ -1766,7 +1766,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
         }
 
         // --- Navigation ---
-        
+
         async function changeImage(delta) {
             forceHideTooltip();
             if (state.isSkipping) return;
@@ -1776,20 +1776,20 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             if (state.hideLabeled) {
                 // Find next file where isDone == false
                 state.isSkipping = true;
-                
+
                 // Simple search in memory list
                 let found = -1;
                 let direction = delta > 0 ? 1 : -1;
                 let i = state.currentIndex + direction;
-                
-                while(i >= 0 && i < state.fileList.length) {
+
+                while (i >= 0 && i < state.fileList.length) {
                     if (!state.fileList[i].isDone) {
                         found = i;
                         break;
                     }
                     i += direction;
                 }
-                
+
                 if (found !== -1) {
                     nextIdx = found;
                 } else {
@@ -1812,7 +1812,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 
         async function toggleHideLabeled() {
             state.hideLabeled = !state.hideLabeled;
-            
+
             const currentItem = state.fileList[state.currentIndex];
             if (state.hideLabeled && currentItem.isDone) {
                 state.isSkipping = true;
@@ -1825,7 +1825,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                         break;
                     }
                 }
-                
+
                 // If not found forward, try backward from start
                 if (found === -1) {
                     for (let i = 0; i < state.currentIndex; i++) {
@@ -1835,13 +1835,13 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                         }
                     }
                 }
-                
+
                 if (found !== -1) {
                     state.currentIndex = found;
                     await loadLabelForCurrentFile();
                     resetView();
                 }
-                
+
                 state.isSkipping = false;
             }
             render();
@@ -1859,7 +1859,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                 } else {
                     el.style.color = isErr ? '#f87171' : '#34d399';
                 }
-                
+
                 if (msg === "Saved!" || msg === "Loaded" || msg === "Reloaded" || msg === "Deleted" || msg === "Overwrite Denied") {
                     clearTimeout(statusTimer);
                     statusTimer = setTimeout(() => { if (el) el.textContent = ''; }, 2000);
@@ -1871,7 +1871,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 
         function updateLabelingView() {
             forceHideTooltip();
-            
+
             // Check all done state (visual only)
             // Actually, we can check if visible count is 0
             if (state.hideLabeled) {
@@ -1914,12 +1914,12 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                     // Calculate "Page X of Y unlabeled"
                     const unlabeledTotal = state.fileList.filter(f => !f.isDone).length;
                     const unlabeledBefore = state.fileList.slice(0, state.currentIndex + 1).filter(f => !f.isDone).length;
-                    
+
                     if (state.fileList[state.currentIndex].isDone) {
-                         // Should not happen usually due to changeImage logic, but handling edge case
-                         pageInd.innerHTML = `- <span style="color:#6b7280">/ ${unlabeledTotal}</span>`;
+                        // Should not happen usually due to changeImage logic, but handling edge case
+                        pageInd.innerHTML = `- <span style="color:#6b7280">/ ${unlabeledTotal}</span>`;
                     } else {
-                         pageInd.innerHTML = `${unlabeledBefore} <span style="color:#6b7280">/ ${unlabeledTotal}</span>`;
+                        pageInd.innerHTML = `${unlabeledBefore} <span style="color:#6b7280">/ ${unlabeledTotal}</span>`;
                     }
                 } else {
                     pageInd.innerHTML = `${dispIdx} <span style="color:#6b7280">/ ${total}</span>`;
@@ -1948,10 +1948,10 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 
                 if (loadedName !== currentItem.name) {
                     if (infobar) infobar.textContent = currentItem.name;
-                    
+
                     // Clear container FIRST to avoid double images
-                    imgContainer.innerHTML = ''; 
-                    
+                    imgContainer.innerHTML = '';
+
                     currentItem.handle.getFile().then(file => {
                         // Check index again to prevent race condition
                         if (state.fileList[state.currentIndex].name !== currentItem.name) return;
@@ -1965,9 +1965,9 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                             const w = img.naturalWidth;
                             const h = img.naturalHeight;
                             const gcdVal = gcd(w, h);
-                            if (infobar) infobar.innerHTML = `${currentItem.name} <span class="dim" style="margin-left:12px;">[ ${w} x ${h} | ${w/gcdVal}:${h/gcdVal} ]</span>`;
+                            if (infobar) infobar.innerHTML = `${currentItem.name} <span class="dim" style="margin-left:12px;">[ ${w} x ${h} | ${w / gcdVal}:${h / gcdVal} ]</span>`;
                         };
-                        
+
                         // Double check before appending
                         imgContainer.innerHTML = '';
                         imgContainer.appendChild(img);
@@ -1989,7 +1989,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 
             const imgContainer = document.getElementById('pan-zoom-target');
             const infobar = document.getElementById('lp-infobar');
-            
+
             if (imgContainer) imgContainer.innerHTML = `
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; color: #9ca3af; height: 100%;">
                 <div style="color: var(--success); margin-bottom: 1rem;">${getIcon('check-circle')}</div>
@@ -1997,11 +1997,11 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                 <p>All images have been labeled.</p>
                 <button onclick="toggleHideLabeled()" style="margin-top: 1.5rem; padding: 0.5rem 1rem; background-color: var(--bg-hover); color: white; border: none; border-radius: 4px; cursor: pointer;">Show All Images</button>
             </div>`;
-            
+
             if (infobar) infobar.textContent = "";
             const pageInd = document.getElementById('page-indicator');
             if (pageInd) pageInd.innerHTML = `<span style="color: var(--success)">Done</span>`;
-            
+
             const btnHide = document.getElementById('btn-hide-labeled');
             if (btnHide) btnHide.className = `tool-btn ${state.hideLabeled ? 'active' : ''}`;
 
@@ -2039,7 +2039,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 
             const labels = state.activeLabels; // Used loaded active labels
             let skipRemaining = false;
-            
+
             const isLocked = !state.allowOverwrite && state.hasExistingJson;
 
             state.labelConfig.forEach((item, index) => {
@@ -2138,11 +2138,11 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
             const w = container.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
             const h = container.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
             if (w <= 0 || h <= 0) return;
-            
+
             let min = 10, max = Math.min(w, h * 0.6, 40), optimal = min;
             text.style.width = 'auto'; text.style.height = 'auto';
             text.style.whiteSpace = 'nowrap'; text.style.lineHeight = '1';
-            
+
             if (max < min) max = min;
             while (min <= max) {
                 const mid = Math.floor((min + max) / 2);
