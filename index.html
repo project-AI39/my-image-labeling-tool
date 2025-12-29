@@ -1549,8 +1549,8 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                             try {
                                 const file = await jsonHandle.getFile();
                                 const text = await file.text();
-                                const json = JSON.parse(text);
-                                isDone = checkIsFinished(json).isFinished;
+                                const parsed = JSON.parse(text);
+                                isDone = checkIsFinished(parsed.labels).isFinished;
                             } catch (e) {
                                 // Error reading JSON, assume not done
                             }
@@ -1598,7 +1598,8 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                 const handle = await state.outputDirHandle.getFileHandle(jsonName);
                 const file = await handle.getFile();
                 const text = await file.text();
-                state.activeLabels = JSON.parse(text);
+                const parsed = JSON.parse(text);
+                state.activeLabels = parsed.labels;
                 state.hasExistingJson = true;
                 
                 // Update done status while we are here, just in case
@@ -1712,7 +1713,13 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
                         Object.assign(orderedLabels, state.activeLabels);
                     }
 
-                    await w.write(JSON.stringify(orderedLabels, null, 2));
+                    // Create output object with image_id and labels
+                    const outputData = {
+                        image_id: baseName,
+                        labels: orderedLabels
+                    };
+
+                    await w.write(JSON.stringify(outputData, null, 4));
                     await w.close();
                     state.hasExistingJson = true; // Update state after save
                     showStatus("Saved!", false); // Success Message HERE
