@@ -6,7 +6,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 シンプルなラベリングツールのフロントエンドです。
 
 主な機能:
-- ローカルフォルダ内の画像（.jpg/.jpeg/.png/.webp）を読み込み、
+    - ローカルフォルダ内の画像（.jpg/.jpeg/.png/.webp/.avif）を読み込み、
     画像ごとに定義済みのラベルセットで評価を行います。
 - ラベル定義は JSON（ラベルルール）として読み込み可能で、
     設定に応じて各画像のラベル結果をローカルに保存します。
@@ -1101,7 +1101,7 @@ Labeling Tool (純粋バニラ HTML CSS JavaScript)
 
         let hoverTimer = null;
         let resizeTimer = null;
-        const SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
+        const SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.avif'];
 
         // ==========================================
         // 2. Rendering
